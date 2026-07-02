@@ -1,6 +1,9 @@
+import { onUpdate } from '../core/GameLoop.js';
+import { GameState } from '../core/State Machine.js';
+
 export class Scene {
     entities = [];
-    
+
     add(e){
         this.entities.push(e);
     }
@@ -27,4 +30,9 @@ export class Scene {
     }
 }
 
-export const scene = new Scene(); 
+export const scene = new Scene();
+
+// Scene 在 PLAYING 状态下每帧更新自身
+onUpdate(GameState.PLAYING, 'Scene', (dt) => {
+    scene.update(dt);
+});

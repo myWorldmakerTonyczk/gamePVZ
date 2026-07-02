@@ -24,7 +24,8 @@ export const KEY_MAP = {
     KeyS: "down",
     KeyD: "right",
 
-    Space: "fire"
+    Space: "fire",
+    KeyP: "pause"
 };
 
  export function isAction(action) {

@@ -1,6 +1,10 @@
 import { GameState, currentState, setCurrentState, getCurrentState } from './State Machine.js';
-import { scene } from '../Entity/Scene.js';
 export { GameState };
+// ==================== 引擎持有的全局引用 ====================
+
+let world = null;
+export function setWorld(w) { world = w; }
+
 // ==================== 帧率控制 ====================
 
 let lastTime = 0;
@@ -16,8 +20,6 @@ export function start(_ctx, _canvas) {
     canvas = _canvas;
     lastTime = performance.now();
     requestAnimationFrame(tick);
-    //开始时设定状态
-    transition(GameState.START);
 }
 
 function tick(timestamp) {
@@ -37,17 +39,14 @@ function tick(timestamp) {
 // ==================== 每帧逻辑更新 ====================
 
 export function update(dt) {
-    // 各模块注册的每帧钩子
+    // 各模块注册的每帧钩子（Scene 更新也走这里）
     hooks.onUpdate[currentState]?.forEach(h => h.fn(dt));
-    scene.update(dt);
 }
-
-
 
 
 function render() {
     ctx.clearRect(0, 0, canvas.width, canvas.height);
-    scene.render(ctx);
+    world?.render(ctx);  // 渲染不依赖状态，有 world 就画
 }
 
 // ==================== 钩子系统 ====================
