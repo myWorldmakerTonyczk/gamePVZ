@@ -1,4 +1,4 @@
-import { GameState, currentState } from './State Machine.js';
+import { GameState, currentState, setCurrentState, getCurrentState } from './State Machine.js';
 import { scene } from '../Entity/Scene.js';
 export { GameState };
 // ==================== 帧率控制 ====================
@@ -95,8 +95,8 @@ export function transition(newState) {
     // 离开旧状态
     hooks.onExit[currentState]?.forEach(h => h.fn());
 
-    const oldState = currentState;
-    currentState = newState;
+    const oldState = getCurrentState();
+    setCurrentState(newState);
 
     // 进入新状态
     hooks.onEnter[newState]?.forEach(h => {

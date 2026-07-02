@@ -13,3 +13,6 @@ export let currentState = GameState.START;
 export function getCurrentState() {
     return currentState;
 }
+ export function setCurrentState(newState) {
+      currentState = newState;
+  }
