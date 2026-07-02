@@ -13,25 +13,91 @@
 ## 项目结构
 
 ```
-├── index.html              ← 游戏入口
-├── src/
-│   ├── core/               ← 游戏引擎核心
-│   │   ├── engine.js       ← 主循环
-│   │   ├── stateMachine.js ← 状态机
-│   │   └── world.js        ← 世界管理
-│   ├── entities/           ← 游戏实体
-│   ├── systems/            ← 功能系统
-│   ├── config/             ← 数据配置
-│   └── utils/              ← 工具函数
-├── ui/                     ← 样式与 UI 组件
+├── index.html              ← 游戏入口（Canvas）
+├── main.js                 ← 组装入口（创建实体、注册系统、启动引擎）
+├── Service/
+│   ├── core/               ← 引擎核心
+│   │   ├── State Machine.js ← 状态机（START/PLAYING/PAUSED/WIN/LOSE）
+│   │   ├── GameLoop.js     ← 主循环（固定60fps + 钩子系统）
+│   │   └── EventBus.js     ← 事件总线（模块间通信）
+│   ├── Entity/             ← 实体类
+│   │   ├── Entity.js       ← 基类（x, y, update, render）
+│   │   ├── Scene.js        ← 场景容器（实体增删、遍历更新/渲染）
+│   │   └── pojo/
+│   │       ├── Box.js      ← 测试方块（自动右移）
+│   │       └── player.js   ← 玩家方块（键盘操控）
+│   ├── Input/
+│   │   └── Input.js        ← 键盘输入（isAction / isJustPressed）
+│   └── system/
+│       └── PauseSystem.js  ← 暂停系统（P 键切换 PLAYING/PAUSED）
+├── Data/                   ← 数据配置
+├── UI/                     ← 样式与 UI 组件
 ├── assets/                 ← 图片/音效
 ├── docs/                   ← 文档
 └── db/                     ← 数据库 schema
 ```
 
+## 引擎架构
+
+### 状态机（State Machine）
+
+管理游戏全局状态，5 种状态：`START` / `PLAYING` / `PAUSED` / `WIN` / `LOSE`。
+
+- `transition(newState)` — 唯一状态切换入口，不允许直接修改 `currentState`
+- `onEnter(state, label, fn)` — 进入某状态时触发（用于初始化）
+- `onExit(state, label, fn)` — 离开某状态时触发（用于清理）
+- `onUpdate(state, label, fn)` — 在某状态下每帧触发（用于持续逻辑）
+
+### 游戏主循环（GameLoop）
+
+浏览器 `requestAnimationFrame` 驱动，**固定时间步长**（锁 60fps，约 16.67ms/帧）。
+
+- **accumulator 模式** — 累计时间差，追赶掉帧，保证逻辑确定性
+- **200ms cap** — 防止切后台后时间爆炸
+- **update / render 分离** — update 可能追赶多次，render 每帧只画一次
+- `setWorld(w)` — 设置当前世界，render 自动调用 `world.render(ctx)`
+- `init(canvas)` — 注入画布，引擎自管清屏与渲染
+
+### 事件总线（EventBus）
+
+发布-订阅模式，模块间解耦通信。各模块只依赖 EventBus，不互相 import，避免循环依赖。
+
+- `on(event, fn)` — 注册监听
+- `emit(event, data)` — 触发事件
+- `off(event, fn)` — 移除监听
+
+### Entity / Scene
+
+- **Entity** — 所有游戏对象的基类，提供 `x`/`y` 坐标、`update(dt)` 逻辑更新、`render(ctx)` 绘制
+- **Scene** — 实体容器，管理 `entities[]` 增删，每帧遍历调用所有实体的 update/render。构造时自动注册到 `PLAYING` 状态的 onUpdate
+
+### 键盘输入（Input）
+
+全局键盘状态管理。
+
+- `keyState` — 实时按键状态 Map
+- `KEY_MAP` — 物理键码到动作名的映射（支持方向键 + WASD）
+- `isAction(action)` — 持续检测，按住期间一直返回 true（适合移动）
+- `isJustPressed(action)` — 防抖检测，只在按下的第一帧返回 true（适合暂停、开火）
+
+### 暂停系统（PauseSystem）
+
+监听 P 键，使用 `isJustPressed` 防抖，在 `PLAYING` ↔ `PAUSED` 之间切换。
+
 ## 运行方式
 
-直接在浏览器中打开 `index.html`，或使用 Live Server。
+使用 Live Server 打开 `index.html`（ES Module 需要 HTTP 协议，不能直接 `file://` 打开）。
+
+## 开发进度
+
+- [x] 状态机 + GameLoop（固定时间步长 + 钩子系统）
+- [x] Entity 基类 + Scene 容器
+- [x] 键盘输入（isAction 持续检测 / isJustPressed 防抖）
+- [x] 事件总线 EventBus
+- [x] 暂停系统（P 键切换）
+- [ ] 子弹实体 + 碰撞检测
+- [ ] 植物/僵尸实体
+- [ ] 资源管理器
 
 ## 团队成员
 
