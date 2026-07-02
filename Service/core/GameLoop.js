@@ -1,6 +1,6 @@
-import { GameState } from './State Machine.js';
-import { currentState } from './State Machine.js';
-import * as world from './World.js';
+import { GameState, currentState } from './State Machine.js';
+
+export { GameState };
 
 // ==================== 帧率控制 ====================
 
@@ -36,8 +36,6 @@ export function update(dt) {
         case GameState.START:
             break;
         case GameState.PLAYING:
-            world.update(dt);
-            world.checkCollisions();
             break;
         case GameState.PAUSED:
             break;
@@ -52,7 +50,7 @@ export function update(dt) {
 }
 
 function render() {
-    world.render();
+    // 以后填 Canvas 绘制
 }
 
 // ==================== 钩子系统 ====================
