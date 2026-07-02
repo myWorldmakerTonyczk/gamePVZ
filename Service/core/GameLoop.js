@@ -1,17 +1,23 @@
 import { GameState, currentState } from './State Machine.js';
-
+import { scene } from '../Entity/Scene.js';
 export { GameState };
-
 // ==================== 帧率控制 ====================
 
 let lastTime = 0;
 const FIXED_DT = 1000 / 60; // 16.67ms，锁60帧
 let accumulator = 0;
+let ctx = null;
+let canvas = null;
+
 
 // 启动入口
-export function start() {
+export function start(_ctx, _canvas) {
+    ctx = _ctx;
+    canvas = _canvas;
     lastTime = performance.now();
     requestAnimationFrame(tick);
+    //开始时设定状态
+    transition(GameState.START);
 }
 
 function tick(timestamp) {
@@ -31,26 +37,17 @@ function tick(timestamp) {
 // ==================== 每帧逻辑更新 ====================
 
 export function update(dt) {
-    // 引擎自身的状态逻辑
-    switch (currentState) {
-        case GameState.START:
-            break;
-        case GameState.PLAYING:
-            break;
-        case GameState.PAUSED:
-            break;
-        case GameState.WIN:
-            break;
-        case GameState.LOSE:
-            break;
-    }
-
     // 各模块注册的每帧钩子
     hooks.onUpdate[currentState]?.forEach(h => h.fn(dt));
+    scene.update(dt);
 }
 
+
+
+
 function render() {
-    // 以后填 Canvas 绘制
+    ctx.clearRect(0, 0, canvas.width, canvas.height);
+    scene.render(ctx);
 }
 
 // ==================== 钩子系统 ====================
