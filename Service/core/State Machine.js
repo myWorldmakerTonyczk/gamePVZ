@@ -8,5 +8,8 @@ export const GameState = {
 }
 
 //当前状态
-export let currentState;
+export let currentState = GameState.START;
 
+export function getCurrentState() {
+    return currentState;
+}
