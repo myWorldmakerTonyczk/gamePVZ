@@ -1,5 +1,5 @@
-import { Entity } from '../Entity.js';
-import { EntityType } from '../EntityType.js';
+import { Entity } from '@entity/Entity.js';
+import { EntityType } from '@entity/EntityType.js';
 
 export class Box extends Entity {
     id = crypto.randomUUID();

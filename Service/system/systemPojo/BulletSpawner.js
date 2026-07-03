@@ -1,7 +1,7 @@
-import { eventBus } from '../../core/EventBus/EventBus.js';
-import { EventTypes } from '../../core/EventBus/EventTypes.js';
-import { Bullet } from '../../Entity/pojo/Bullet.js';
-import { scene } from '../../Entity/Scene.js';
+import { eventBus } from '@core/EventBus/EventBus.js';
+import { EventTypes } from '@core/EventBus/EventTypes.js';
+import { Bullet } from '@entity/pojo/Bullet.js';
+import { scene } from '@entity/Scene.js';
 
 eventBus.on(EventTypes.PLAYER_SHOOT, ({ x, y }) => {
     const bullet = new Bullet();

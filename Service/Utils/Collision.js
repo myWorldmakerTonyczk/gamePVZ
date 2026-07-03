@@ -1,7 +1,6 @@
-import { eventBus } from "../core/EventBus/EventBus.js";
-import {EntityType} from "../Entity/EntityType.js";
-import {EventTypes} from "../core/EventBus/EventTypes.js";
-
+import { eventBus } from '@core/EventBus/EventBus.js';
+import { EntityType } from '@entity/EntityType.js';
+import { EventTypes } from '@core/EventBus/EventTypes.js';
 
 //碰撞规则(前面为Entity类型，后面为碰撞类型列表type)
 const collisionRules ={
@@ -11,7 +10,7 @@ const collisionRules ={
 }
 
 //新增碰撞规则方法
-export function addCollisionRule(type1,type2){ 
+export function addCollisionRule(type1,type2){
     if(!collisionRules[type1]){
         collisionRules[type1] = [];
     }
@@ -41,10 +40,10 @@ export function canCollide(type1,type2){
 }
 
 //AABB方法检测是否碰撞
-export function checkCollisionABB(a,b){ 
+export function checkCollisionABB(a,b){
      return a.x < b.x + b.w &&
             a.x + a.w > b.x &&
-            a.y < b.y + b.h && 
+            a.y < b.y + b.h &&
             a.y + a.h > b.y;
 }
 

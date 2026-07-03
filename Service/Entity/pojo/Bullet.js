@@ -1,5 +1,5 @@
-import { Entity } from "../Entity.js";
-import { EntityType } from "../EntityType.js";
+import { Entity } from '@entity/Entity.js';
+import { EntityType } from '@entity/EntityType.js';
 
 export class Bullet extends Entity {
     id = crypto.randomUUID();
@@ -12,8 +12,8 @@ export class Bullet extends Entity {
     angle = 0;
 
     update(dt){
-         this.x += Math.cos(this.angle) * this.speed * dt;
-         this.y += Math.sin(this.angle) * this.speed * dt;
+        this.x += Math.cos(this.angle) * this.speed * dt;
+        this.y += Math.sin(this.angle) * this.speed * dt;
     }
     render(ctx){
         ctx.fillStyle = "white";
@@ -22,9 +22,8 @@ export class Bullet extends Entity {
     getBounds() {
         return { x: this.x, y: this.y, w: this.w, h: this.h };
     }
-    //子弹射击方法
+
     shoot(angle){
         this.angle = angle;
     }
-    
 }

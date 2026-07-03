@@ -1,5 +1,5 @@
-import { onUpdate } from '../core/GameLoop.js';
-import { GameState } from '../core/State Machine.js';
+import { onUpdate } from '@core/GameLoop.js';
+import { GameState } from '@core/State Machine.js';
 
 export class Scene {
     entities = [];

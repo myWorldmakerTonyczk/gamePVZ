@@ -1,12 +1,12 @@
-import { onUpdate } from '../../core/GameLoop.js';
-import { GameState } from '../../core/State Machine.js';
-import { isJustPressed } from '../../Input/Input.js';
-import { KEY_MAP } from '../../Input/Input.js';
-import { HookLabel } from '../HookLabel.js';
-import { eventBus } from '../../core/EventBus/EventBus.js';
-import { EventTypes } from '../../core/EventBus/EventTypes.js';
-import { scene } from '../../Entity/Scene.js';
-import { EntityType } from '../../Entity/EntityType.js';
+import { onUpdate } from '@core/GameLoop.js';
+import { GameState } from '@core/State Machine.js';
+import { isJustPressed } from '@input/Input.js';
+import { KEY_MAP } from '@input/Input.js';
+import { HookLabel } from '@system/HookLabel.js';
+import { eventBus } from '@core/EventBus/EventBus.js';
+import { EventTypes } from '@core/EventBus/EventTypes.js';
+import { scene } from '@entity/Scene.js';
+import { EntityType } from '@entity/EntityType.js';
 
 let player = null;
 scene.getEntities().forEach(e => {
