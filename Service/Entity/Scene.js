@@ -1,5 +1,6 @@
-import { onUpdate } from '../core/GameLoop.js';
-import { GameState } from '../core/State Machine.js';
+import { onUpdate } from '@core/GameLoop.js';
+import { GameState } from '@core/State Machine.js';
+import { overlayManager } from '@overlay/OverlayManager.js';
 
 export class Scene {
     entities = [];
@@ -16,17 +17,23 @@ export class Scene {
 
     del(e){
         this.entities = this.entities.filter(entity => entity !== e);
+        overlayManager.removeByTarget(e);
     }
 
     clear(){
         this.entities = [];
     }
 
-    // 渲染场景
+    getEntities(){
+        return this.entities;
+    }
+
+    // 渲染场景 + overlay 层
     render(ctx){
         for(const e of this.entities){
             e.render(ctx);
         }
+        overlayManager.render(ctx);
     }
 }
 

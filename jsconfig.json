@@ -1,0 +1,13 @@
+{
+    "compilerOptions": {
+        "paths": {
+            "@core/*":   ["./Service/core/*"],
+            "@entity/*": ["./Service/Entity/*"],
+            "@system/*": ["./Service/system/*"],
+            "@input/*":  ["./Service/Input/*"],
+            "@utils/*":   ["./Service/Utils/*"],
+            "@overlay/*": ["./Service/OverLay/*"]
+        }
+    },
+    "include": ["Service/**/*.js", "main.js", "level/**/*.js"]
+}

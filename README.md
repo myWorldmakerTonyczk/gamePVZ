@@ -10,34 +10,55 @@
 - **JavaScript (ES6+)** — 游戏核心逻辑
 - **SQL.js** — 浏览器端 SQLite 存档
 
+## 运行方式
+
+```bash
+# Live Server 打开 index.html（ES Module 需要 HTTP，不能 file://）
+```
+
 ## 项目结构
 
 ```
-├── index.html              ← 游戏入口（Canvas）
-├── main.js                 ← 组装入口（创建实体、注册系统、启动引擎）
+├── index.html              ← 游戏入口（Canvas + importmap）
+├── main.js                 ← 组装入口（import 系统 + 关卡 + 启动引擎）
+├── jsconfig.json           ← VS Code 路径别名（Ctrl+点击跳转）
+├── level/                  ← 关卡配置
+│   └── level1.js           ← 第1关（创建实体 + 注入 Scene）
 ├── Service/
 │   ├── core/               ← 引擎核心
 │   │   ├── State Machine.js ← 状态机（START/PLAYING/PAUSED/WIN/LOSE）
 │   │   ├── GameLoop.js     ← 主循环（固定60fps + 钩子系统）
 │   │   └── EventBus/       ← 事件总线
 │   │       ├── EventBus.js  ← 发布-订阅机制（on/emit/off）
-│   │       └── EventTypes.js← 事件名常量（统一管理）
-│   ├── Entity/             ← 实体类
-│   │   ├── Entity.js       ← 基类（x, y, w, h, speed, type, update, render, getBounds）
+│   │       └── EventTypes.js← 事件名常量
+│   ├── Entity/             ← 实体层（游戏对象）
+│   │   ├── Entity.js       ← 基类（x,y,w,h,hp,maxHp,speed,type）
 │   │   ├── EntityType.js   ← 实体类型枚举（PLAYER/ENEMY/BULLET）
-│   │   ├── Scene.js        ← 场景容器（实体增删、遍历更新/渲染）
+│   │   ├── Scene.js        ← 场景容器 + overlay 渲染
 │   │   └── pojo/
-│   │       ├── Box.js      ← 测试方块（type=ENEMY，自动右移）
-│   │       └── player.js   ← 玩家方块（type=PLAYER，键盘操控）
-│   ├── Input/
-│   │   └── Input.js        ← 键盘输入（isAction / isJustPressed / KEY_MAP）
+│   │       ├── Box.js      ← 敌人方块（自动右移，100hp）
+│   │       ├── player.js   ← 玩家方块（WASD 移动）
+│   │       └── Bullet.js   ← 子弹（角度飞行 + shoot 方法）
+│   ├── OverLay/            ← 贴片系统（血条/伤害数字等）
+│   │   ├── Overlay.js      ← 基类（跟随实体/生命周期）
+│   │   ├── OverlayManager.js ← 容器（add/update/render/remove）
+│   │   └── pojo/
+│   │       └── HealthBar.js ← 血条（自动跟随 + 绿→黄→红变色）
+│   ├── Input/              ← 输入系统
+│   │   ├── Input.js        ← 键盘（isAction / isJustPressed）
+│   │   └── Mouse.js        ← 鼠标（isMouseAction / isJustClicked / getMousePos）
 │   ├── Utils/
-│   │   └── Collision.js    ← 碰撞工具（AABB检测 + 碰撞规则 + checkCollisions）
-│   └── system/
-│       ├── HookLabel.js    ← Hook 标签常量（统一管理）
+│   │   └── Collision.js    ← 碰撞工具（AABB + 碰撞规则 + checkCollisions）
+│   └── system/             ← 系统层（游戏逻辑）
+│       ├── HookLabel.js    ← Hook 标签常量
+│       ├── index.js        ← 统一入口
 │       └── systemPojo/
-│           ├── PauseSystem.js  ← 暂停系统（P 键切换 + 碰撞测试）
-│           └── CollisionSystem.js ← 碰撞系统（每帧检测所有实体对）
+│           ├── PauseSystem.js  ← 暂停系统
+│           ├── CollisionSystem.js ← 碰撞系统（检测 + 扣血 + 清除）
+│           ├── CollisionTest.js  ← 碰撞测试（碰撞→暂停）
+│           ├── PlayerSystem.js   ← 玩家系统（射击方向 + 发射）
+│           ├── BulletSpawner.js  ← 子弹生成器（监听 PLAYER_SHOOT）
+│           └── OverlaySystem.js  ← Overlay 驱动
 ├── Data/                   ← 数据配置
 ├── UI/                     ← 样式与 UI 组件
 ├── assets/                 ← 图片/音效
@@ -45,91 +66,84 @@
 └── db/                     ← 数据库 schema
 ```
 
+## 路径别名（importmap）
+
+所有 import 使用 `@` 前缀别名，无论文件在哪层，路径始终一致：
+
+```js
+import { onUpdate } from '@core/GameLoop.js';
+import { scene }     from '@entity/Scene.js';
+import { isJustPressed } from '@input/Input.js';
+import { checkCollisions } from '@utils/Collision.js';
+import { overlayManager }  from '@overlay/OverlayManager.js';
+import { HookLabel } from '@system/HookLabel.js';
+```
+
 ## 引擎架构
 
 ### 状态机（State Machine）
 
-管理游戏全局状态，5 种状态：`START` / `PLAYING` / `PAUSED` / `WIN` / `LOSE`。
-
-- `transition(newState)` — 唯一状态切换入口，不允许直接修改 `currentState`
-- `onEnter(state, label, fn)` — 进入某状态时触发（用于初始化）
-- `onExit(state, label, fn)` — 离开某状态时触发（用于清理）
-- `onUpdate(state, label, fn)` — 在某状态下每帧触发（用于持续逻辑）
+- `transition(newState)` — 唯一状态切换入口
+- `onEnter(state, label, fn)` — 进入某状态时触发
+- `onExit(state, label, fn)` — 离开某状态时触发
+- `onUpdate(state, label, fn)` — 某状态下每帧触发
 
 ### 游戏主循环（GameLoop）
 
-浏览器 `requestAnimationFrame` 驱动，**固定时间步长**（锁 60fps，约 16.67ms/帧）。
-
-- **accumulator 模式** — 累计时间差，追赶掉帧，保证逻辑确定性
-- **200ms cap** — 防止切后台后时间爆炸
-- **update / render 分离** — update 可能追赶多次，render 每帧只画一次
-- `setWorld(w)` — 设置当前世界，render 自动调用 `world.render(ctx)`
-- `init(canvas)` — 注入画布，引擎自管清屏与渲染
+固定时间步长 60fps，accumulator 模式防掉帧，update / render 分离。
+`setWorld(w)` 注入世界对象，render 调用 `world.render(ctx)`。
 
 ### 事件总线（EventBus）
 
-发布-订阅模式，模块间解耦通信。各模块只依赖 EventBus，不互相 import，避免循环依赖。
+- `COLLISION` — 碰撞事件，CollisionSystem emit，各模块 on
+- `PLAYER_SHOOT` — 射击事件，PlayerSystem emit，BulletSpawner on
 
-- `on(event, fn)` — 注册监听
-- `emit(event, data)` — 触发事件
-- `off(event, fn)` — 移除监听
+### Entity / Scene / Overlay
 
-### Entity / Scene
+- **Entity** — 游戏对象基类，`update(dt)` / `render(ctx)` / `getBounds()`
+- **Scene** — 实体容器，遍历更新/渲染，末尾调用 `overlayManager.render(ctx)`
+- **Overlay** — 贴片基类，可跟随实体（`target`）或独立定位，支持生命周期（`duration`）
+- **OverlayManager** — 贴片容器，自动清理过期 overlay
 
-- **Entity** — 所有游戏对象的基类，提供 `x`/`y` 坐标、`update(dt)` 逻辑更新、`render(ctx)` 绘制
-- **Scene** — 实体容器，管理 `entities[]` 增删，每帧遍历调用所有实体的 update/render。构造时自动注册到 `PLAYING` 状态的 onUpdate
+### 输入系统
 
-### 键盘输入（Input）
+| 键盘 | 鼠标 | 用途 |
+|------|------|------|
+| `isAction('left')` | `isMouseAction(MouseMap.LEFT)` | 按住持续 |
+| `isJustPressed('pause')` | `isJustClicked(MouseMap.LEFT)` | 单次触发 |
+| — | `getMousePos(canvas)` | 返回 Canvas 坐标 |
 
-全局键盘状态管理。
+### 碰撞系统
 
-- `keyState` — 实时按键状态 Map
-- `KEY_MAP` — 物理键码到动作名的映射（支持方向键 + WASD）
-- `isAction(action)` — 持续检测，按住期间一直返回 true（适合移动）
-- `isJustPressed(action)` — 防抖检测，只在按下的第一帧返回 true（适合暂停、开火）
+双层循环检测所有实体对 → `canCollide` 查规则 → AABB 矩形检测 → emit COLLISION → 监听方扣血/清除。
 
-### 实体类型（EntityType）
+## 数据流
 
-实体的类型标签，配合碰撞规则使用。
-
-- `EntityType.PLAYER` — 玩家
-- `EntityType.ENEMY` — 敌人
-- `EntityType.BULLET` — 子弹
-- `setEntityType(key, type)` — 动态注册新类型
-
-### 碰撞系统（Collision + CollisionSystem）
-
-规则驱动 + AABB 矩形检测 + EventBus 通信。
-
-- **碰撞规则** — `collisionRules` Map，定义哪些类型之间会碰撞（如 PLAYER ↔ ENEMY）
-- **AABB 检测** — `checkCollisionABB(a, b)` 矩形重叠判断
-- **`checkCollisions(entities)`** — 双层循环遍历所有实体对，查规则 + 做 AABB，命中则 `emit(COLLISION)`
-- **CollisionSystem** — 注册 `onUpdate(PLAYING)`，每帧自动调用 `checkCollisions`
-
-### 钩子标签（HookLabel）
-
-`onEnter`/`onExit`/`onUpdate` 的 label 参数统一管理，放在 `Service/system/HookLabel.js`。
-
-### 暂停系统（PauseSystem）
-
-监听 P 键，使用 `isJustPressed` 防抖，在 `PLAYING` ↔ `PAUSED` 之间切换。
-
-## 运行方式
-
-使用 Live Server 打开 `index.html`（ES Module 需要 HTTP 协议，不能直接 `file://` 打开）。
+```
+main.js → import level1.js  → 实体注入 Scene
+        → import system/    → 系统注册 hooks
+        → transition + start → GameLoop 启动
+        ↓
+每帧 tick:
+  update(dt) → hooks.onUpdate → Scene/PlayerSystem/CollisionSystem...
+  render()   → world.render(ctx) → Scene.render → entities + overlayManager
+```
 
 ## 开发进度
 
 - [x] 状态机 + GameLoop（固定时间步长 + 钩子系统）
 - [x] Entity 基类 + Scene 容器
-- [x] 键盘输入（isAction 持续检测 / isJustPressed 防抖）
+- [x] 键盘输入 + 鼠标输入
 - [x] 事件总线 EventBus + EventTypes
-- [x] 暂停系统（P 键切换）
-- [x] 碰撞检测系统（AABB + 碰撞规则 + CollisionSystem）
-- [x] 实体类型 + 钩子标签常量管理
-- [ ] 子弹实体（空格发射 + 碰撞后清除）
+- [x] 暂停系统
+- [x] 碰撞检测系统（AABB + 规则 + 扣血）
+- [x] 子弹实体（角度飞行 + 碰撞清除）
+- [x] Overlay 贴片系统（血条跟随 + 生命周期）
+- [x] importmap 路径别名 + jsconfig.json
+- [x] 关卡分层（level/*.js）
+- [ ] 资源管理器（图片/音效加载）
 - [ ] 植物/僵尸实体
-- [ ] 资源管理器
+- [ ] START/WIN/LOSE 界面
 
 ## 团队成员
 

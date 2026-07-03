@@ -3,4 +3,8 @@ export const HookLabel = {
       SCENE:             'Scene',
       PAUSE:             'Pause',
       COLLISION_SYSTEM:  'CollisionSystem',
+      PLAYER_SYSTEM:     'PlayerSystem',
+      BULLET_SPAWNER:    'BulletSpawner',
+      MOUSE_SYSTEM:      'MouseSystem',
+      OVERLAY:           'Overlay',
   };
