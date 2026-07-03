@@ -7,4 +7,5 @@ export const HookLabel = {
       BULLET_SPAWNER:    'BulletSpawner',
       MOUSE_SYSTEM:      'MouseSystem',
       OVERLAY:           'Overlay',
+      START_SYSTEM:      'StartSystem',
   };

@@ -43,12 +43,14 @@
 │   │   ├── Overlay.js      ← 基类（跟随实体/生命周期）
 │   │   ├── OverlayManager.js ← 容器（add/update/render/remove）
 │   │   └── pojo/
-│   │       └── HealthBar.js ← 血条（自动跟随 + 绿→黄→红变色）
+│   │       ├── HealthBar.js ← 血条（自动跟随 + 绿→黄→红变色）
+│   │       └── StartScreen.js ← 开始界面 Overlay
 │   ├── Input/              ← 输入系统
 │   │   ├── Input.js        ← 键盘（isAction / isJustPressed）
 │   │   └── Mouse.js        ← 鼠标（isMouseAction / isJustClicked / getMousePos）
 │   ├── Utils/
-│   │   └── Collision.js    ← 碰撞工具（AABB + 碰撞规则 + checkCollisions）
+│   │   ├── Collision.js    ← 碰撞工具（AABB + 碰撞规则 + checkCollisions）
+│   │   └── ResourceManager.js ← 资源管理器（cache/loaders 双 Map + Promise）
 │   └── system/             ← 系统层（游戏逻辑）
 │       ├── HookLabel.js    ← Hook 标签常量
 │       ├── index.js        ← 统一入口
@@ -58,7 +60,8 @@
 │           ├── CollisionTest.js  ← 碰撞测试（碰撞→暂停）
 │           ├── PlayerSystem.js   ← 玩家系统（射击方向 + 发射）
 │           ├── BulletSpawner.js  ← 子弹生成器（监听 PLAYER_SHOOT）
-│           └── OverlaySystem.js  ← Overlay 驱动
+│           ├── OverlaySystem.js  ← Overlay 驱动
+│           └── StartSystem.js    ← START 状态管理（界面 + 输入检测）
 ├── Data/                   ← 数据配置
 ├── UI/                     ← 样式与 UI 组件
 ├── assets/                 ← 图片/音效
@@ -117,6 +120,17 @@ import { HookLabel } from '@system/HookLabel.js';
 
 双层循环检测所有实体对 → `canCollide` 查规则 → AABB 矩形检测 → emit COLLISION → 监听方扣血/清除。
 
+### 资源管理器（ResourceManager）
+
+Map + Promise 架构，解决异步加载和缓存复用：
+
+- **cache**（Map）— 已加载完成的资源（Image/Audio/JSON），直接取用
+- **loaders**（Map）— 正在加载中的 Promise，防并发重复请求
+- `load(path)` — 加载单个资源（自动去重，始终返回 Promise）
+- `get(path)` — 同步取缓存（需预加载过）
+- `preload(paths)` — 启动时批量预加载
+- 按文件后缀自动分发加载器（.png→Image、.mp3→Audio、.json→fetch）
+
 ## 数据流
 
 ```
@@ -141,9 +155,10 @@ main.js → import level1.js  → 实体注入 Scene
 - [x] Overlay 贴片系统（血条跟随 + 生命周期）
 - [x] importmap 路径别名 + jsconfig.json
 - [x] 关卡分层（level/*.js）
-- [ ] 资源管理器（图片/音效加载）
-- [ ] 植物/僵尸实体
-- [ ] START/WIN/LOSE 界面
+- [x] 资源管理器（cache + loaders + Promise 异步流程）
+- [x] START 开始界面 + System 生命周期统一
+- [ ] 植物/僵尸实体（贴图替换色块）
+- [ ] WIN/LOSE 界面
 
 ## 团队成员
 

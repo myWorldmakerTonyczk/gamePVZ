@@ -1,5 +1,5 @@
 import { scene } from '@entity/Scene.js';
-import { onUpdate } from '@core/GameLoop.js';
+import { onEnter, onExit, onUpdate } from '@core/GameLoop.js';
 import { GameState } from '@core/State Machine.js';
 import { checkCollisions } from '@utils/Collision.js';
 import { EventTypes } from '@core/EventBus/EventTypes.js';
@@ -11,9 +11,8 @@ onUpdate(GameState.PLAYING, HookLabel.COLLISION_SYSTEM, () => {
     checkCollisions(scene.entities);
 });
 
-// 碰撞处理：子弹 → 清除 + 扣血，子弹撞子弹忽略
-eventBus.on(EventTypes.COLLISION, ({ a, b }) => {
-    // 子弹命中敌人
+// 碰撞处理：子弹 → 清除 + 扣血
+function onCollision({ a, b }) {
     if (a.type === EntityType.BULLET && b.type === EntityType.ENEMY) {
         scene.del(a);
         b.hp -= 25;
@@ -24,12 +23,15 @@ eventBus.on(EventTypes.COLLISION, ({ a, b }) => {
         a.hp -= 25;
         if (a.hp <= 0) scene.del(a);
     }
-    // 子弹撞到其他东西（墙、玩家）直接清除
+    // 子弹撞墙/玩家 → 直接清除
     if (a.type === EntityType.BULLET) scene.del(a);
     if (b.type === EntityType.BULLET) scene.del(b);
+}
+
+onEnter(GameState.PLAYING, HookLabel.COLLISION_SYSTEM, () => {
+    eventBus.on(EventTypes.COLLISION, onCollision);
 });
 
-
-
-
-
+onExit(GameState.PLAYING, HookLabel.COLLISION_SYSTEM, () => {
+    eventBus.off(EventTypes.COLLISION, onCollision);
+});
