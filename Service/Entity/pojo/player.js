@@ -1,11 +1,14 @@
 import { Entity } from "../../Entity/Entity.js";
 import { isAction } from "../../Input/Input.js";
- export class Player extends Entity {
+import { EntityType } from "../../Entity/EntityType.js"; 
+export class Player extends Entity {
+    id = crypto.randomUUID();
     speed = 200;
     x = 0;
     y = 0;
-    width = 20;
-    height = 20;
+    w = 20;
+    h = 20;
+    type = EntityType.PLAYER;
 
     update(dt) {
         this.keyBoardMove(dt);
@@ -15,7 +18,7 @@ import { isAction } from "../../Input/Input.js";
          ctx.fillRect(this.x, this.y, 20, 20);
     }
     getBounds() {
-        return { x: this.x, y: this.y, w: this.width, h: this.height };
+        return { x: this.x, y: this.y, w: this.w, h: this.h };
        }
 
     
