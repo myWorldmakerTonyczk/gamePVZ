@@ -1,6 +1,6 @@
 import { start, transition, GameState } from '@core/GameLoop.js';
-import '@system/index.js';
 import './level/level1.js';
+import '@system/index.js';
 console.log("main loaded");
 
 const canvas = document.getElementById('game');

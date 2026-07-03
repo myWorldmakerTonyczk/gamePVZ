@@ -5,4 +5,5 @@ export const HookLabel = {
       COLLISION_SYSTEM:  'CollisionSystem',
       PLAYER_SYSTEM:     'PlayerSystem',
       BULLET_SPAWNER:    'BulletSpawner',
+      MOUSE_SYSTEM:      'MouseSystem',
   };
