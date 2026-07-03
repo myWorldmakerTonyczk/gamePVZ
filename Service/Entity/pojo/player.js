@@ -11,7 +11,7 @@ export class Player extends Entity {
     type = EntityType.PLAYER;
 
     update(dt) {
-        this.keyBoardMove(dt);
+       
     }
     render(ctx){
          ctx.fillStyle = 'red';
@@ -37,5 +37,6 @@ export class Player extends Entity {
         }
     }
 
-    
 }
+
+

@@ -22,6 +22,10 @@ export class Scene {
         this.entities = [];
     }
 
+    getEntities(){
+        return this.entities;
+    }
+
     // 渲染场景
     render(ctx){
         for(const e of this.entities){

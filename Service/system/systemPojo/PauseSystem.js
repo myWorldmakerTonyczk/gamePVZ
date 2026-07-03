@@ -17,7 +17,7 @@ import { EventTypes } from '../../core/EventBus/EventTypes.js'
 
     //测试方法
     
- let handled = false;
+    let handled = false;
 
   eventBus.on(EventTypes.COLLISION, () => {
       if (handled) return;
