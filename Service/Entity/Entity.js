@@ -1,8 +1,11 @@
 export class Entity {
+    id = crypto.randomUUID();
     x = 0;
     y = 0;
-    width = 0;
-    height = 0;
+    w = 0;
+    h = 0;
+    speed = 0;
+    type = null;
 
     update(dt) {
 
@@ -12,6 +15,7 @@ export class Entity {
     }
 
     getBounds() {
-        return { x: this.x, y: this.y, w: this.width, h: this.height };
+        return { x: this.x, y: this.y, w: this.w, h: this.h };
     }
+
 }

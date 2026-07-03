@@ -2,8 +2,8 @@ import { scene } from './Service/Entity/Scene.js';
 import { Box } from './Service/Entity/pojo/Box.js';
 import { Player } from './Service/Entity/pojo/player.js';
 import { start, setWorld, transition, GameState } from './Service/core/GameLoop.js';
-import { initPauseSystem } from './Service/system/PauseSystem.js';
-
+import './Service/system/systemPojo/PauseSystem.js';
+import './Service/system/systemPojo/CollisionSystem.js';
 console.log("main loaded");
 
 // 拿画布和画笔
@@ -24,8 +24,6 @@ scene.add(player);
 // 告诉引擎当前世界
 setWorld(scene);
 
-// 初始化系统
-initPauseSystem();
 
 // 启动
 transition(GameState.PLAYING);
