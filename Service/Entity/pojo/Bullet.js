@@ -12,8 +12,8 @@ export class Bullet extends Entity {
     angle = 0;
 
     update(dt){
-        this.x += this.speed*dt;
-        this.y += this.speed*dt;
+         this.x += Math.cos(this.angle) * this.speed * dt;
+         this.y += Math.sin(this.angle) * this.speed * dt;
     }
     render(ctx){
         ctx.fillStyle = "white";
@@ -27,8 +27,7 @@ export class Bullet extends Entity {
         this.x = player.x;
         this.y = player.y;
         this.angle = angle;
-        this.x += Math.cos(angle)*speed;
-        this.y += Math.sin(angle)*speed;
+    
     }
     
 }

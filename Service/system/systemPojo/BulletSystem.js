@@ -7,7 +7,5 @@ import { HookLabel } from '../HookLabel.js';
 import { EventTypes } from '../../core/EventBus/EventTypes.js'
 import { Bullet } from '../../Entity/pojo/Bullet.js';
 
-eventBus.on(EventTypes.COLLISION,bullet.shoot);
 
 
-onUpdate(GameState.PLAYING, HookLabel.BULLET_SYSTEM,toggle);

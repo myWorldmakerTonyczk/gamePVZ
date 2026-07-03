@@ -22,6 +22,7 @@ function toggle(dt){
     const bullet = new Bullet();
       bullet.x = player.x;
       bullet.y = player.y;
+      bullet.speed = 500;
       bullet.shoot(player,1,bullet.speed);
       scene.add(bullet);
 }
