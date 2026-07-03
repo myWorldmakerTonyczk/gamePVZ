@@ -1,4 +1,6 @@
 export class Entity {
+    maxHp = 100;
+    hp = 100;
     id = crypto.randomUUID();
     x = 0;
     y = 0;

@@ -33,6 +33,7 @@ export const KEY_MAP = {
     KeyP: "pause"
 };
 
+// 按键是否按下
 export function isAction(action) {
     for (const [code, name] of Object.entries(KEY_MAP)) {
         if (name === action && keyState.keys[code]) return true;

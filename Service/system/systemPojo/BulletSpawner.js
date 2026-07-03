@@ -3,11 +3,11 @@ import { EventTypes } from '@core/EventBus/EventTypes.js';
 import { Bullet } from '@entity/pojo/Bullet.js';
 import { scene } from '@entity/Scene.js';
 
-eventBus.on(EventTypes.PLAYER_SHOOT, ({ x, y }) => {
+eventBus.on(EventTypes.PLAYER_SHOOT, ({ x, y, angle }) => {
     const bullet = new Bullet();
     bullet.x = x;
     bullet.y = y;
     bullet.speed = 500;
-    bullet.shoot(1);
+    bullet.shoot(angle);
     scene.add(bullet);
 });

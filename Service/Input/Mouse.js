@@ -1,14 +1,14 @@
 export const MouseMap = {
-    MOUSE_RIGHT: "2 ", 
-    MOUSE_LEFT: "0",
-    MOUSE_MIDDLE: "1"
-}
+    LEFT:   0,
+    MIDDLE: 1,
+    RIGHT:  2,
+};
 
 export const mouseState = {
     x: 0,
     y: 0,
-    buttons: {},        // 当前按住状态
-    justPressed: {},    // 只按一次
+    buttons: {},
+    justPressed: {},
 };
 
 window.addEventListener("mousemove", (e) => {
@@ -25,23 +25,27 @@ window.addEventListener("mouseup", (e) => {
     mouseState.buttons[e.button] = false;
 });
 
-
-//这个需要注册到主循环中
-export function updateMouse() {
-    mouseState.justPressed = {};
-}
-
-//按住检测
-export function isMouseDown(button = 0) {
+// 按住检测
+export function isMouseAction(button) {
     return !!mouseState.buttons[button];
 }
 
-//单次点击
-export function isJustClicked(button = 0) {
-    return !!mouseState.justPressed[button];
+// 单次点击
+export function isJustClicked(button) {
+    if (mouseState.justPressed[button]) {
+        mouseState.justPressed[button] = false;
+        console.log(mouseState.x, mouseState.y);
+        return true;
+    }
+    return false;
 }
 
-//获取位置
-export function getMousePos() {
-    return { x: mouseState.x, y: mouseState.y };
+// 获取位置（传入 canvas 做坐标转换）
+export function getMousePos(canvas) {
+    if (!canvas) return { x: mouseState.x, y: mouseState.y };
+    const rect = canvas.getBoundingClientRect();
+    return {
+        x: (mouseState.x - rect.left) * (canvas.width / rect.width),
+        y: (mouseState.y - rect.top) * (canvas.height / rect.height),
+    };
 }
