@@ -1,12 +1,10 @@
-import { onUpdate, transition } from '../../core/GameLoop.js';
-import { GameState, getCurrentState } from '../../core/State Machine.js';
-import { isJustPressed, isAction, } from '../../Input/Input.js';
+import { onUpdate } from '../../core/GameLoop.js';
+import { GameState } from '../../core/State Machine.js';
+import { isJustPressed } from '../../Input/Input.js';
 import { KEY_MAP } from '../../Input/Input.js';
 import { HookLabel } from '../HookLabel.js';
-import { eventBus } from '../../core/EventBus/EventBus.js'
-import { EventTypes } from '../../core/EventBus/EventTypes.js'
-import { Player } from '../../Entity/pojo/player.js';
-import { Bullet } from '../../Entity/pojo/Bullet.js';
+import { eventBus } from '../../core/EventBus/EventBus.js';
+import { EventTypes } from '../../core/EventBus/EventTypes.js';
 import { scene } from '../../Entity/Scene.js';
 import { EntityType } from '../../Entity/EntityType.js';
 
@@ -16,16 +14,10 @@ scene.getEntities().forEach(e => {
         player = e;
     }
 });
-function toggle(dt){
-    player.keyBoardMove(dt);
-   if(isJustPressed(KEY_MAP.Space)){
-    const bullet = new Bullet();
-      bullet.x = player.x;
-      bullet.y = player.y;
-      bullet.speed = 500;
-      bullet.shoot(player,1,bullet.speed);
-      scene.add(bullet);
-}
+
+function tick(dt) {
+    if (!player || !isJustPressed(KEY_MAP.Space)) return;
+    eventBus.emit(EventTypes.PLAYER_SHOOT, { x: player.x, y: player.y });
 }
 
-onUpdate(GameState.PLAYING, HookLabel.PLAYER_SYSTEM, (dt) => toggle(dt));
+onUpdate(GameState.PLAYING, HookLabel.PLAYER_SYSTEM, tick);

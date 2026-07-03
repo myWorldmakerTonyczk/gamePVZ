@@ -1,7 +1,7 @@
 import { Box } from "../Service/Entity/pojo/Box.js";
 import { Player } from "../Service/Entity/pojo/player.js";
 import { scene } from "../Service/Entity/Scene.js";
-import { setWorld, start } from "../Service/core/GameLoop.js";
+import { setWorld } from "../Service/core/GameLoop.js";
 
 const box = new Box();
 box.x = 50;

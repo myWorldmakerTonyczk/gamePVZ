@@ -1,3 +1,4 @@
 export const EventTypes = {
-    COLLISION: 'collision',
-}
+    COLLISION:     'collision',
+    PLAYER_SHOOT:  'player:shoot',
+};

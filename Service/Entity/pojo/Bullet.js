@@ -22,12 +22,9 @@ export class Bullet extends Entity {
     getBounds() {
         return { x: this.x, y: this.y, w: this.w, h: this.h };
     }
-     //子弹射击方法
-     shoot(player,angle,speed){
-        this.x = player.x;
-        this.y = player.y;
+    //子弹射击方法
+    shoot(angle){
         this.angle = angle;
-    
     }
     
 }

@@ -4,5 +4,5 @@ export const HookLabel = {
       PAUSE:             'Pause',
       COLLISION_SYSTEM:  'CollisionSystem',
       PLAYER_SYSTEM:     'PlayerSystem',
-      BULLET_SYSTEM:     'BulletSystem',
+      BULLET_SPAWNER:    'BulletSpawner',
   };
