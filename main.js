@@ -7,4 +7,4 @@ const canvas = document.getElementById('game');
 const ctx = canvas.getContext('2d');
 
 start(ctx, canvas);
-transition(GameState.START);
+transition(GameState.LOADING);

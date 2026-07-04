@@ -84,6 +84,7 @@ export function get(path) {
 }
 
 /** 4️⃣ 预加载：一次性加载列表中的所有资源 */
+//paths:是一个List<string>，包含所有要加载的资源路径
 export async function preload(paths) {
     console.log(`[ResourceManager] 开始预加载 ${paths.length} 个资源...`);
     const results = await Promise.all(paths.map(p => loadOne(p)));

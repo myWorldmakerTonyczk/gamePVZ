@@ -8,4 +8,5 @@ export const HookLabel = {
       MOUSE_SYSTEM:      'MouseSystem',
       OVERLAY:           'Overlay',
       START_SYSTEM:      'StartSystem',
+      LOAD_SYSTEM:       'LoadSystem',
   };
