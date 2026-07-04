@@ -7,7 +7,8 @@
             "@input/*":  ["./Service/Input/*"],
             "@utils/*":   ["./Service/Utils/*"],
             "@overlay/*": ["./Service/OverLay/*"],
-            "@resource/*": ["./Service/Resource/*"]
+            "@resource/*": ["./Service/Resource/*"],
+            "@assets/*": ["./assets/*"]
         }
     },
     "include": ["Service/**/*.js", "main.js", "level/**/*.js"]

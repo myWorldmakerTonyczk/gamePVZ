@@ -44,6 +44,12 @@ async function loadJSON(src) {
 /** 根据文件后缀选加载器 */
 function loadOne(path) {
     if (loaders.has(path)) return loaders.get(path);  // 正在加载中，复用
+    if (cache.has(path)) return Promise.resolve(cache.get(path));  // 已缓存
+
+    if (path.startsWith('@')) {
+        console.warn(`[ResourceManager] ⚠️ 路径包含 @，可能误用了 importmap 别名，请改为真实路径: ${path}`);
+    }
+    console.log(`[ResourceManager] 加载: ${path}`);
     let promise;
     if (path.endsWith('.png') || path.endsWith('.jpg') || path.endsWith('.gif')) {
         promise = loadImage(path);
@@ -52,12 +58,18 @@ function loadOne(path) {
     } else if (path.endsWith('.json')) {
         promise = loadJSON(path);
     } else {
+        console.error(`[ResourceManager] 不支持的文件类型: ${path}`);
         promise = Promise.reject(new Error(`不支持的文件类型: ${path}`));
     }
     promise = promise.then(res => {
         cache.set(path, res);
         loaders.delete(path);
+        console.log(`[ResourceManager] 加载完成: ${path}`);
         return res;
+    }).catch(err => {
+        loaders.delete(path);
+        console.error(`[ResourceManager] 加载失败: ${path}`, err.message);
+        throw err;
     });
     loaders.set(path, promise);
     return promise;
