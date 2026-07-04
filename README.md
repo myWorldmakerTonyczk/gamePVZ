@@ -106,9 +106,14 @@ gamePVZ/
 │   │   ├── Scene.js            ← 场景容器（遍历 update/render + Overlay 渲染）
 │   │   └── pojo/               ← 实体实现
 │   │       ├── Box.js          ← 敌人方块（旧，已被 Zombie 替代）
-│   │       ├── Zombie.js       ← 僵尸（左移 + 图片/色块双模渲染）
+│   │       ├── Zombie.js       ← 僵尸（state='walk'，由 AnimationSystem 驱动动画）
 │   │       ├── player.js       ← 玩家（WASD 移动 + 方向显示）
 │   │       └── Bullet.js       ← 子弹（角度飞行 + 碰撞清除）
+│   │
+│   ├── Animation/              ← 动画系统
+│   │   ├── Animation.js        ← 帧数组 + 时间驱动切帧 + loop/play/stop
+│   │   ├── AnimationRegistry.js← key → Animation 映射
+│   │   └── pojo/               ← 动画定义（按实体分类）
 │   │
 │   ├── Resource/              ← 资源管理
 │   │   ├── ResourceManager.js ← 加载/缓存/获取（双 Map + Promise + 日志/错误检测）
@@ -126,20 +131,22 @@ gamePVZ/
 │   │   └── Mouse.js            ← 鼠标输入（isMouseAction / isJustClicked / getMousePos）
 │   │
 │   ├── Utils/
-│   │   └── Collision.js        ← 碰撞工具（AABB 检测 + 碰撞规则 + checkCollisions）
+│   │   ├── Collision.js        ← 碰撞工具（AABB 检测 + 碰撞规则 + checkCollisions）
+│   │   └── getPhotoPathAsc.js  ← 帧路径拼接（命名规范 + 自动检测）
 │   │
 │   └── system/                 ← 系统层（游戏逻辑）
 │       ├── HookLabel.js        ← Hook 标签常量（调试追踪用）
 │       ├── index.js            ← 系统统一入口（副作用 import）
 │       └── systemPojo/
-│           ├── PauseSystem.js      ← 暂停系统（Esc 切换 PAUSED / PLAYING）
+│           ├── AnimationSystem.js  ← 动画系统（读 entity.state → 驱动帧 → 渲染）
+│           ├── LoadSystem.js       ← LOADING 阶段资源预加载
+│           ├── StartSystem.js      ← START 状态（界面 + 输入检测）
+│           ├── PauseSystem.js      ← 暂停切换（Esc）
 │           ├── CollisionSystem.js  ← 碰撞系统（检测 + 扣血 + 死亡清除）
-│           ├── CollisionTest.js    ← 碰撞测试（检测到碰撞 → 暂停，调试用）
-│           ├── PlayerSystem.js     ← 玩家系统（方向切换 + 射击发射事件）
-│           ├── BulletSpawner.js    ← 子弹生成器（监听 PLAYER_SHOOT → 创建子弹）
-│           ├── OverlaySystem.js    ← Overlay 驱动（每帧更新所有贴片）
-│           ├── LoadSystem.js       ← 资源加载（onEnter LOADING → preload → START）
-│           └── StartSystem.js      ← START 状态管理（界面渲染 + 任意键开始）
+│           ├── CollisionTest.js    ← 碰撞测试（碰撞 → 暂停，调试用）
+│           ├── PlayerSystem.js     ← 玩家系统（方向 + 射击事件）
+│           ├── BulletSpawner.js    ← 子弹生成器（监听 PLAYER_SHOOT）
+│           └── OverlaySystem.js    ← Overlay 驱动（每帧更新贴片）
 │
 ├── Data/                       ← 数据配置（数值 / 关卡数据）
 ├── UI/                         ← UI 样式与组件
@@ -455,6 +462,60 @@ onEnter(GameState.LOADING, 'LoadSystem', async () => {
 
 ---
 
+### 9. 动画系统
+
+Entity 只持有 `state`（行为状态），完全不涉及动画代码。AnimationSystem 统一读取、翻译、驱动、渲染。
+
+```
+Entity.state = 'walk'
+       ↓
+AnimationSystem.onUpdate (每帧)
+  ├─ 读 entity.type + entity.state
+  ├─ STATE_ANIM_MAP 翻译 → 动画 key ('zombieWalk')
+  ├─ AnimationRegistry.get(key) → Animation 实例
+  ├─ anim.update(dt) 驱动帧计时
+  └─ anim.getCurrentFrame() → 当前帧图片路径
+       ↓
+AnimationSystem.render (Scene 每帧调用)
+  └─ entity.drawSprite(ctx, frame, x, y, w)
+```
+
+**三模块协作**：
+
+| 模块 | 职责 |
+|------|------|
+| `Animation` | 帧数组 + 时间驱动切帧 + `loop/play/stop/pause/reset` |
+| `AnimationRegistry` | key → Animation 映射，实体按名取 |
+| `AnimationSystem` | 读 entity.state → 选动画 → 驱动 → 渲染（`setAfterEntityRender` 钩子） |
+
+**渲染顺序**：`entity.render()` → `AnimationSystem.render()` → `Overlay.render()`，保证动画在实体之上、贴片之下。
+
+**添加新动画**：
+
+```js
+// 1. Animation/pojo/ 下新建文件
+const frames = getPhotoPathAsc('assets/xxx', 8, 'png');
+frames.forEach(f => setResource(f));
+registerAnimation('myWalk', new Animation({ frames, frameTime: 0.1, loop: true }));
+
+// 2. AnimationSystem.js STATE_ANIM_MAP 加映射
+[EntityType.ENEMY]: { walk: 'myWalk' },
+
+// 3. 实体设置 state
+this.state = 'walk';
+```
+
+**getPhotoPathAsc**：
+
+```js
+// 命名规范：文件夹名_序号.拓展名
+getPhotoPathAsc('assets/zombie/walk', 20, 'png', 1);
+// → walk_1.png ~ walk_20.png
+// 传 count → 同步返回；不传 count → Promise 自动检测
+```
+
+---
+
 ## 📊 数据流
 
 ```
@@ -474,6 +535,7 @@ main.js
 
   update(dt):
     hooks.onUpdate[currentState] → 逐个执行
+      ├─ AnimationSystem    ← 读 entity.state → 驱动动画帧
       ├─ PlayerSystem       ← 方向 + 射击事件
       ├─ CollisionSystem    ← 碰撞检测 + 扣血
       ├─ CollisionTest      ← 碰撞 → 暂停（调试）
@@ -508,10 +570,13 @@ main.js
 - [x] **资源管理系统** — ResourceList（Set 注册）+ LoadSystem（调度）+ ResourceManager（双 Map + Promise 去重 + 日志/错误检测）
 - [x] **路径别名** — importmap + jsconfig.json（Ctrl+点击跳转，含 @resource）
 - [x] **关卡分层** — `level/` 目录，创建实体与系统解耦
-- [x] **僵尸实体** — Zombie 类（左移 + 图片/色块双模渲染 + 资源管线串联验证）
+- [x] **僵尸实体** — Zombie 类（state='walk'，由 AnimationSystem 驱动动画）
+- [x] **动画系统** — Animation + Registry + AnimationSystem（Entity.state 驱动，完全解耦）
+- [x] **FrameLoader** — getPhotoPathAsc（命名规范拼帧路径，同步/自动检测双模式）
 
 ### 进行中 🚧
 
+- [ ] 雪碧图打包（散图 → 运行时拼接，减少请求）
 - [ ] 敌方波次系统
 - [ ] 植物实体（贴图 + 放置逻辑）
 - [ ] WIN / LOSE 结算界面
