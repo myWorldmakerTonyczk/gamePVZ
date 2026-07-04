@@ -105,9 +105,14 @@ gamePVZ/
 │   │   ├── EntityType.js       ← 实体类型枚举（PLAYER / ENEMY / BULLET）
 │   │   ├── Scene.js            ← 场景容器（遍历 update/render + Overlay 渲染）
 │   │   └── pojo/               ← 实体实现
-│   │       ├── Box.js          ← 敌人方块（自动右移追踪玩家 Y，100 HP）
-│   │       ├── player.js       ← 玩家方块（WASD 移动 + 方向显示）
-│   │       └── Bullet.js       ← 子弹（角度飞行 + shoot 方法 + 碰撞清除）
+│   │       ├── Box.js          ← 敌人方块（旧，已被 Zombie 替代）
+│   │       ├── Zombie.js       ← 僵尸（左移 + 图片/色块双模渲染）
+│   │       ├── player.js       ← 玩家（WASD 移动 + 方向显示）
+│   │       └── Bullet.js       ← 子弹（角度飞行 + 碰撞清除）
+│   │
+│   ├── Resource/              ← 资源管理
+│   │   ├── ResourceManager.js ← 加载/缓存/获取（双 Map + Promise + 日志/错误检测）
+│   │   └── ResourceList.js    ← 资源清单（Set 去重，各模块注册路径）
 │   │
 │   ├── OverLay/                ← 贴片系统（血条 / 伤害数字等 UI 层元素）
 │   │   ├── Overlay.js          ← 贴片基类（跟随实体 / 生命周期）
@@ -121,8 +126,7 @@ gamePVZ/
 │   │   └── Mouse.js            ← 鼠标输入（isMouseAction / isJustClicked / getMousePos）
 │   │
 │   ├── Utils/
-│   │   ├── Collision.js        ← 碰撞工具（AABB 检测 + 碰撞规则 + checkCollisions）
-│   │   └── ResourceManager.js  ← 资源管理器（cache + loaders 双 Map + Promise）
+│   │   └── Collision.js        ← 碰撞工具（AABB 检测 + 碰撞规则 + checkCollisions）
 │   │
 │   └── system/                 ← 系统层（游戏逻辑）
 │       ├── HookLabel.js        ← Hook 标签常量（调试追踪用）
@@ -134,6 +138,7 @@ gamePVZ/
 │           ├── PlayerSystem.js     ← 玩家系统（方向切换 + 射击发射事件）
 │           ├── BulletSpawner.js    ← 子弹生成器（监听 PLAYER_SHOOT → 创建子弹）
 │           ├── OverlaySystem.js    ← Overlay 驱动（每帧更新所有贴片）
+│           ├── LoadSystem.js       ← 资源加载（onEnter LOADING → preload → START）
 │           └── StartSystem.js      ← START 状态管理（界面渲染 + 任意键开始）
 │
 ├── Data/                       ← 数据配置（数值 / 关卡数据）
@@ -169,7 +174,10 @@ import { MouseMap, getMousePos }  from '@input/Mouse.js';
 
 // 工具
 import { checkCollisions } from '@utils/Collision.js';
-import { load, preload, get } from '@utils/ResourceManager.js';
+
+// 资源
+import { load, preload, get } from '@resource/ResourceManager.js';
+import { setResource } from '@resource/ResourceList.js';
 
 // 事件
 import { eventBus }    from '@core/EventBus/EventBus.js';
@@ -192,17 +200,18 @@ VS Code 中按住 `Ctrl` + 点击路径可直接跳转到源文件。
 
 ### 1. 状态机（State Machine）
 
-游戏有 5 种状态，`transition()` 是**唯一的状态切换入口**：
+游戏有 6 种状态，`transition()` 是**唯一的状态切换入口**：
 
 ```
-START ──→ PLAYING ──→ PAUSED ──→ PLAYING
-                   ├──→ WIN
-                   └──→ LOSE
+LOADING ──→ START ──→ PLAYING ──→ PAUSED ──→ PLAYING
+                               ├──→ WIN
+                               └──→ LOSE
 ```
 
 ```js
 // 状态枚举
 export const GameState = {
+  LOADING: 'loading',
   START:   'start',
   PLAYING: 'playing',
   PAUSED:  'paused',
@@ -383,7 +392,20 @@ getMousePos(canvas)                 // 返回 { x, y } Canvas 坐标
 
 碰撞发生后，`CollisionSystem` 监听事件自动扣血并清除死亡实体。
 
-### 8. 资源管理器（ResourceManager）
+### 8. 资源管理系统
+
+三模块协作：`ResourceList`（声明依赖）→ `LoadSystem`（调度加载）→ `ResourceManager`（执行加载/缓存/获取）。
+
+#### ResourceList — 资源清单
+
+各模块在 import 时调用 `setResource()` 声明自己需要的资源，Set 自动去重：
+
+```js
+import { setResource } from '@resource/ResourceList.js';
+setResource('assets/images/zombie.png', 'assets/images/bullet.png');
+```
+
+#### ResourceManager — 加载/缓存/获取
 
 基于 **双 Map + Promise 架构**，解决异步加载的缓存复用和并发去重：
 
@@ -393,28 +415,19 @@ loaders: Map<string, Promise>             ← 正在加载中的 Promise
 ```
 
 ```js
-// 预加载（启动时一次性加载所有资源）
-import { preload } from '@utils/ResourceManager.js';
-await preload([
-  'assets/zombie.png',
-  'assets/player.png',
-  'assets/bgm.mp3',
-  'data/config.json',
-]);
+import { load, preload, get, isCached } from '@resource/ResourceManager.js';
 
-// 单个加载（自动去重，同一资源并发请求只发一次网络请求）
-import { load } from '@utils/ResourceManager.js';
+// 预加载（LoadSystem 在 LOADING 阶段调用）
+await preload(resourceList);
+
+// 单个加载（自动去重）
 const img = await load('assets/bullet.png');
 
 // 同步获取（前提是已预加载）
-import { get } from '@utils/ResourceManager.js';
-const cfg = get('data/config.json');
+const img = get('assets/images/zombie.png');
 
 // 检查缓存
-import { isCached } from '@utils/ResourceManager.js';
-if (!isCached('assets/boss.png')) {
-  await load('assets/boss.png');
-}
+if (!isCached('assets/boss.png')) { await load('assets/boss.png'); }
 ```
 
 **按文件后缀自动分发加载器**：
@@ -425,7 +438,20 @@ if (!isCached('assets/boss.png')) {
 | `.mp3` `.wav` `.ogg` | `new Audio()` |
 | `.json` | `fetch()` |
 
-**防重复加载机制**：如果 `A` 和 `B` 同时请求 `assets/zombie.png`，第二个请求直接返回 `loaders` 中已有的 Promise，不会发起第二次网络请求。
+**防重复加载**：同一资源并发请求时复用 `loaders` 中已有的 Promise，不发起第二次网络请求。
+
+**日志与错误检测**：加载时控制台输出 `[ResourceManager]` 前缀日志；路径以 `@` 开头时发出警告（可能误用了 importmap 别名）。
+
+#### LoadSystem — 加载调度
+
+LOADING 状态进入时，读取 ResourceList 并调用 preload，完成后切换到 START：
+
+```js
+onEnter(GameState.LOADING, 'LoadSystem', async () => {
+    await preload(getList());
+    transition(GameState.START);
+});
+```
 
 ---
 
@@ -434,11 +460,13 @@ if (!isCached('assets/boss.png')) {
 ```
 main.js
   │
-  ├─ import level/level1.js  ──→ 创建实体 → scene.add() → setWorld(scene)
+  ├─ import level/level1.js  ──→ 实体调用 setResource() + 创建实体 → scene.add()
   ├─ import Service/system/   ──→ 各系统注册 hooks（副作用 import）
   │
   └─ start(ctx, canvas)
-     └─ transition(START)     ──→ 启动状态机
+     └─ transition(LOADING)   ──→ LoadSystem: preload → transition(START)
+            └─ transition(START) ──→ StartSystem: 显示开始界面
+                   └─ 按空格 → transition(PLAYING)
 
 ════════════════════════════════════════════
 
@@ -477,14 +505,15 @@ main.js
 - [x] **Overlay 贴片** — 基类 + Manager + 血条（跟随 + 变色）+ START 界面
 - [x] **子弹系统** — 角度飞行 + 碰撞消失 + EventBus 事件驱动生成
 - [x] **暂停系统** — Esc 切换 + onEnter/onExit 生命周期
-- [x] **资源管理器** — 双 Map 缓存 + Promise 去重 + 自动分发加载器
-- [x] **路径别名** — importmap + jsconfig.json（Ctrl+点击跳转）
+- [x] **资源管理系统** — ResourceList（Set 注册）+ LoadSystem（调度）+ ResourceManager（双 Map + Promise 去重 + 日志/错误检测）
+- [x] **路径别名** — importmap + jsconfig.json（Ctrl+点击跳转，含 @resource）
 - [x] **关卡分层** — `level/` 目录，创建实体与系统解耦
+- [x] **僵尸实体** — Zombie 类（左移 + 图片/色块双模渲染 + 资源管线串联验证）
 
 ### 进行中 🚧
 
-- [ ] 植物 / 僵尸实体（贴图替换色块）
 - [ ] 敌方波次系统
+- [ ] 植物实体（贴图 + 放置逻辑）
 - [ ] WIN / LOSE 结算界面
 - [ ] 音效集成（BGM + 射击 + 碰撞）
 
@@ -507,6 +536,10 @@ main.js
 // 1. Service/Entity/pojo/Zombie.js
 import { Entity } from '@entity/Entity.js';
 import { EntityType } from '@entity/EntityType.js';
+import { setResource } from '@resource/ResourceList.js';
+import { get } from '@resource/ResourceManager.js';
+
+setResource('assets/images/zombie.png');  // 声明依赖
 
 export class Zombie extends Entity {
   type = EntityType.ENEMY;
@@ -516,8 +549,13 @@ export class Zombie extends Entity {
   }
 
   render(ctx) {
-    ctx.fillStyle = 'gray';
-    ctx.fillRect(this.x, this.y, this.w, this.h);
+    const img = get('assets/images/zombie.png');
+    if (img) {
+      ctx.drawImage(img, this.x, this.y, this.w, this.h);
+    } else {
+      ctx.fillStyle = '#4a4';
+      ctx.fillRect(this.x, this.y, this.w, this.h);
+    }
   }
 
   getBounds() {
@@ -562,17 +600,17 @@ import './systemPojo/ZombieSpawner.js';
 
 ```js
 // level/level2.js
-import { Box } from '@entity/pojo/Box.js';
+import { Zombie } from '@entity/pojo/Zombie.js';
 import { Player } from '@entity/pojo/player.js';
 import { scene } from '@entity/Scene.js';
 import { setWorld } from '@core/GameLoop.js';
 
-// 创建更多敌人
+// 创建多个僵尸
 for (let i = 0; i < 5; i++) {
-  const box = new Box();
-  box.x = 400 + i * 80;
-  box.y = 100 + i * 60;
-  scene.add(box);
+  const zombie = new Zombie();
+  zombie.x = 700 + i * 80;
+  zombie.y = 100 + Math.random() * 300;
+  scene.add(zombie);
 }
 
 const player = new Player();
@@ -602,27 +640,31 @@ eventBus.on(EventTypes.ENEMY_DEATH, ({ enemy }) => {
 });
 ```
 
-### 使用资源管理器
+### 使用资源管理系统
 
 ```js
-// 游戏启动时预加载
-import { preload } from '@utils/ResourceManager.js';
+// 1. 各模块声明依赖（在 import 时自动注册）
+import { setResource } from '@resource/ResourceList.js';
+setResource('assets/images/zombie.png', 'assets/sounds/bgm.mp3');
 
-await preload([
-  'assets/zombie.png',
-  'assets/plant.png',
-  'assets/bullet.png',
-  'data/level1.json',
-]);
+// 2. LoadSystem 在 LOADING 阶段自动预加载，无需手动调用 preload
 
-// 实体中使用
-import { get } from '@utils/ResourceManager.js';
+// 3. 实体中使用（同步获取，前提是已预加载）
+import { get } from '@resource/ResourceManager.js';
 
 render(ctx) {
-  const img = get('assets/zombie.png');
-  if (img) ctx.drawImage(img, this.x, this.y, this.w, this.h);
+  const img = get('assets/images/zombie.png');
+  if (img) {
+    ctx.drawImage(img, this.x, this.y, this.w, this.h);
+  } else {
+    // 图片未就绪时用色块兜底
+    ctx.fillStyle = '#4a4';
+    ctx.fillRect(this.x, this.y, this.w, this.h);
+  }
 }
 ```
+
+> ⚠️ 资源路径不能使用 `@` 别名（如 `@assets/...`），importmap 只对 JS import 生效。图片/音频/fetch 加载必须用真实路径。
 
 ---
 
