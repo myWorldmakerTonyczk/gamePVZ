@@ -1,30 +1,31 @@
 import { Entity } from '@entity/Entity.js';
 import { EntityType } from '@entity/EntityType.js';
-import { setResource } from '@resource/ResourceList.js';
-import { get } from '@resource/ResourceManager.js';
 
-// 僵尸需要的资源
-setResource('assets/images/zombie.png');
+// 注册动画（副作用 import）
+import '@animation/pojo/zombie/walk/zombieAnimationWalk.js';
 
 export class Zombie extends Entity {
     type = EntityType.ENEMY;
     speed = 50;
-    w = 40;
+    w = 60;
     h = 60;
 
+    constructor() {
+        super();
+        this.playAnim('zombieWalk');
+    }
+
     update(dt) {
-        this.x -= this.speed * dt;  // 向左走，靠近玩家
+        super.update(dt);
+        this.x -= this.speed * dt;
     }
 
     render(ctx) {
-        const img = get('assets/images/zombie.png');
-        if (img) {
-            ctx.drawImage(img, this.x, this.y, this.w, this.h);
-        } else {
-            // 图片还没加载好时用色块占位
-            ctx.fillStyle = '#4a4';
-            ctx.fillRect(this.x, this.y, this.w, this.h);
-        }
+        const frame = this.getCurrentFrame();
+        if (frame && this.drawSprite(ctx, frame, this.x, this.y, this.w)) return;
+
+        ctx.fillStyle = '#4a4';
+        ctx.fillRect(this.x, this.y, this.w, this.h);
     }
 
     getBounds() {

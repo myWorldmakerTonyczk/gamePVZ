@@ -8,7 +8,10 @@
             "@utils/*":   ["./Service/Utils/*"],
             "@overlay/*": ["./Service/OverLay/*"],
             "@resource/*": ["./Service/Resource/*"],
-            "@assets/*": ["./assets/*"]
+            "@assets/*": ["./assets/*"],
+            "@animation/*": ["./Service/Animation/*"],
+            "@service/*": ["./Service/*"]
+            
         }
     },
     "include": ["Service/**/*.js", "main.js", "level/**/*.js"]
