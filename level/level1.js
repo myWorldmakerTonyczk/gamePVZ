@@ -11,6 +11,14 @@ zombie.y = 200;
 scene.add(zombie);
 overlayManager.add(new HealthBar(zombie));
 
+
+const zombie2 = new Zombie();
+zombie2.x = 700;
+zombie2.y = 100;
+scene.add(zombie2);
+overlayManager.add(new HealthBar(zombie2));
+
+
 const player = new Player();
 player.x = 100;
 player.y = 100;
