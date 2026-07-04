@@ -9,32 +9,36 @@
  * @param {string} [ext='png'] - 拓展名
  * @returns {Promise<string[]>}
  */
-export async function getPhotoPathAsc(dir, count, ext = 'png') {
+export function getPhotoPathAsc(dir, count, ext = 'png', start = 0) {
     dir = dir.replace(/\/$/, '');
     const base = dir.split('/').pop();
-    const frames = [];
 
+    // 有 count → 同步返回数组
     if (count !== undefined) {
-        for (let i = 0; i < count; i++) {
+        const frames = [];
+        for (let i = start; i < start + count; i++) {
             frames.push(`${dir}/${base}_${i}.${ext}`);
         }
         return frames;
     }
 
-    // 自动检测：一直试到加载失败
-    let i = 0;
-    while (true) {
-        const path = `${dir}/${base}_${i}.${ext}`;
-        const ok = await new Promise(resolve => {
-            const img = new Image();
-            img.onload = () => resolve(true);
-            img.onerror = () => resolve(false);
-            img.src = path;
-        });
-        if (!ok) break;
-        frames.push(path);
-        i++;
-    }
-    console.log(`[getPhotoPathAsc] ${dir}: 自动检测到 ${frames.length} 帧`);
-    return frames;
+    // 自动检测 → 返回 Promise
+    return (async () => {
+        const frames = [];
+        let i = 0;
+        while (true) {
+            const path = `${dir}/${base}_${i}.${ext}`;
+            const ok = await new Promise(resolve => {
+                const img = new Image();
+                img.onload = () => resolve(true);
+                img.onerror = () => resolve(false);
+                img.src = path;
+            });
+            if (!ok) break;
+            frames.push(path);
+            i++;
+        }
+        console.log(`[getPhotoPathAsc] ${dir}: 自动检测到 ${frames.length} 帧`);
+        return frames;
+    })();
 }

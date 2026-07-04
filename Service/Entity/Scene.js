@@ -2,6 +2,13 @@ import { onUpdate } from '@core/GameLoop.js';
 import { GameState } from '@core/State Machine.js';
 import { overlayManager } from '@overlay/OverlayManager.js';
 
+// 渲染钩子：AnimationSystem 等外部模块注册
+let _afterEntityRender = null;
+
+export function setAfterEntityRender(fn) {
+    _afterEntityRender = fn;
+}
+
 export class Scene {
     entities = [];
 
@@ -28,18 +35,17 @@ export class Scene {
         return this.entities;
     }
 
-    // 渲染场景 + overlay 层
     render(ctx){
         for(const e of this.entities){
             e.render(ctx);
         }
+        _afterEntityRender?.(ctx);      // 动画系统渲染入口
         overlayManager.render(ctx);
     }
 }
 
 export const scene = new Scene();
 
-// Scene 在 PLAYING 状态下每帧更新自身
 onUpdate(GameState.PLAYING, 'Scene', (dt) => {
     scene.update(dt);
 });

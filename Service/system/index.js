@@ -6,3 +6,5 @@ import './systemPojo/CollisionTest.js';
 import './systemPojo/OverlaySystem.js';
 import './systemPojo/StartSystem.js';
 import './systemPojo/LoadSystem.js';
+import './systemPojo/AnimationSystem.js';
+import '@animation/pojo/index.js';

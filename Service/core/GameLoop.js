@@ -3,7 +3,7 @@ export { GameState };
 // ==================== 引擎持有的全局引用 ====================
 
 let world = null;
-export function setWorld(w) { world = w; }
+export function setWorld(scene) { world = scene; }
 
 // ==================== 帧率控制 ====================
 
