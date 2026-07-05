@@ -15,6 +15,7 @@ export class Entity {
     w = 0;
     h = 0;
     speed = 0;
+    attack = 0;               // 攻击力（脚本读取）
     type = null;
     state = null;             // 行为状态（'walk' / 'attack' / 'idle' / 'dead'）
 

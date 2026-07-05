@@ -11,11 +11,14 @@ import { createZombieAttackScript } from '@entity/scripts/zombie/ZombieAttackScr
 import { createZombieDeathScript } from '@entity/scripts/zombie/ZombieDeathScript.js';
 import { createPlayerShootScript } from '@entity/scripts/player/PlayerShootScript.js';
 import { createPlayerMoveScript } from '@entity/scripts/player/PlayerMoveScript.js';
+import { createPlayerHealthScript } from '@entity/scripts/player/PlayerHealthScript.js';
+import { createPlayerDeathScript } from '@entity/scripts/player/PlayerDeathScript.js';
 
 function spawnZombie(x, y) {
     const zombie = new Zombie();
     zombie.x = x;
     zombie.y = y;
+    zombie.attack = 10;
     attachScripts(zombie,
         createZombieMoveScript(),
         createZombieHealthScript(),
@@ -26,18 +29,25 @@ function spawnZombie(x, y) {
     overlayManager.add(new HealthBar(zombie));
 }
 
-spawnZombie(700, 200);
-spawnZombie(700, 100);
-spawnZombie(700, 50);
-spawnZombie(700, 0);
+export function init() {
+    spawnZombie(700, 200);
+    spawnZombie(700, 100);
+    spawnZombie(700, 50);
+    spawnZombie(700, 0);
 
-const player = new Player();
-player.x = 100;
-player.y = 100;
-attachScripts(player,
-    createPlayerMoveScript(),
-    createPlayerShootScript(),
-);
-scene.add(player);
+    const player = new Player();
+    player.x = 100;
+    player.y = 100;
+    attachScripts(player,
+        createPlayerMoveScript(),
+        createPlayerShootScript(),
+        createPlayerHealthScript(),
+        createPlayerDeathScript(),
+    );
+    scene.add(player);
+    overlayManager.add(new HealthBar(player));
 
-setWorld(scene);
+    setWorld(scene);
+}
+
+init();

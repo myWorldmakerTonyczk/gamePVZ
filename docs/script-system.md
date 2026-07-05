@@ -312,6 +312,21 @@ export function createXxxScript() {
 
 ---
 
+## 脚本写法总结
+
+所有脚本同一种结构：**工厂函数 → 闭包 → `{ stage, enter, update, exit }`**。
+
+### 关键约定
+
+1. **工厂函数，不用 this** — `createXxxScript()` 创建独立实例，闭包隔离
+2. **事件回调过滤** `if (entity !== _entity) return` — 同类实体共享事件，只看自己的
+3. **防重复触发** `if (state === 'attack') return` — 事件每帧触发时守卫
+4. **exit 注销监听** — `eventBus.off(事件名, 同一个函数引用)`
+5. **攻击间隔用计时器** — `_attackTimer += dt`，不能依赖事件频率
+6. **暂停/恢复成对** — STOP + RESUME 两个事件控制开关
+
+---
+
 ## 添加新实体检查清单
 
 1. **创建实体类** — `Entity/pojo/NewEntity.js`，只声明 `type`、`w`、`h`、初始 `state`
@@ -326,12 +341,14 @@ export function createXxxScript() {
 
 | 实体 | 脚本 | 职责 |
 |------|------|------|
-| Zombie | `ZombieMoveScript` | 向左走，监听 STOP_MOVE 暂停 |
+| Zombie | `ZombieMoveScript` | 向左走，监听 STOP/RESUME_MOVE |
 | Zombie | `ZombieHealthScript` | 监听 DAMAGE 扣血，hp≤0 发 ENTITY_DIED |
-| Zombie | `ZombieAttackScript` | 监听 COLLISION 切 attack 状态 |
-| Zombie | `ZombieDeathScript` | 监听 ENTITY_DIED 移除实体 |
+| Zombie | `ZombieAttackScript` | 监听 COLLISION 切 attack + 每1秒攻击 + 距离判定 |
+| Zombie | `ZombieDeathScript` | 监听 ENTITY_DIED 移除 + 全灭 emit LEVEL_WIN |
 | Player | `PlayerMoveScript` | WASD 键盘移动 |
-| Player | `PlayerShootScript` | 监听 PLAYER_SHOOT 生成子弹 |
+| Player | `PlayerShootScript` | 监听 PLAYER_SHOOT 生成子弹 + 挂载子弹脚本 |
+| Player | `PlayerHealthScript` | 监听 DAMAGE 扣血，hp≤0 发 ENTITY_DIED |
+| Player | `PlayerDeathScript` | 监听 ENTITY_DIED emit LEVEL_LOSE |
 | Bullet | `BulletMoveScript` | angle 方向飞行 |
 | Bullet | `BulletDeathScript` | 监听 ENTITY_DIED 移除 |
 
