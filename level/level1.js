@@ -1,7 +1,11 @@
 import { Zombie } from '@entity/pojo/Zombie.js';
 import { Player } from '@entity/pojo/player.js';
 import { scene } from '@entity/Scene.js';
-import { setWorld } from '@core/GameLoop.js';
+import { setWorld, onEnter, onExit } from '@core/GameLoop.js';
+import { GameState } from '@core/State Machine.js';
+import { eventBus } from '@core/EventBus/EventBus.js';
+import { EventTypes } from '@core/EventBus/EventTypes.js';
+import { EntityType } from '@entity/EntityType.js';
 import { overlayManager } from '@overlay/OverlayManager.js';
 import { HealthBar } from '@overlay/pojo/HealthBar.js';
 import { attachScripts } from '@system/systemPojo/ScriptSystem.js';
@@ -29,7 +33,38 @@ function spawnZombie(x, y) {
     overlayManager.add(new HealthBar(zombie));
 }
 
+// ==== 关卡胜负条件 ====
+let _rulesRegistered = false;
+
+function _registerRules() {
+    if (_rulesRegistered) return;
+    _rulesRegistered = true;
+
+    function onEntityDied({ entity }) {
+        if (entity.type === EntityType.PLAYER) {
+            eventBus.emit(EventTypes.LEVEL_LOSE, {}, 'Level1');
+            return;
+        }
+        if (entity.type === EntityType.ENEMY) {
+            const enemies = scene.getEntities().filter(e => e.type === EntityType.ENEMY);
+            if (enemies.length === 0) {
+                eventBus.emit(EventTypes.LEVEL_WIN, {}, 'Level1');
+            }
+        }
+    }
+
+    onEnter(GameState.PLAYING, 'Level1_Rules', () => {
+        eventBus.on(EventTypes.ENTITY_DIED, onEntityDied);
+    });
+
+    onExit(GameState.PLAYING, 'Level1_Rules', () => {
+        eventBus.off(EventTypes.ENTITY_DIED, onEntityDied);
+    });
+}
+
 export function init() {
+    _registerRules();
+
     spawnZombie(700, 200);
     spawnZombie(700, 100);
     spawnZombie(700, 50);

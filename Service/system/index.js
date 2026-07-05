@@ -1,7 +1,6 @@
 import './systemPojo/PauseSystem.js';
 import './systemPojo/CollisionSystem.js';
 import './systemPojo/PlayerSystem.js';
-import './systemPojo/CollisionTest.js';
 import './systemPojo/OverlaySystem.js';
 // import './systemPojo/StartSystem.js';   // 已被 UISystem 替代
 import './systemPojo/LoadSystem.js';

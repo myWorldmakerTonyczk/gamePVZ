@@ -21,6 +21,8 @@
   - [输入系统](#6-输入系统)
   - [碰撞系统](#7-碰撞系统)
   - [资源管理器](#8-资源管理器-resourcemanager)
+  - [UI 系统](#10-ui-系统)
+  - [关卡设计](#11-关卡设计)
 - [数据流](#-数据流)
 - [开发进度](#-开发进度)
 - [开发指南](#-开发指南)
@@ -124,12 +126,20 @@ gamePVZ/
 │   │   ├── ResourceManager.js ← 加载/缓存/获取（双 Map + Promise + 日志/错误检测）
 │   │   └── ResourceList.js    ← 资源清单（Set 去重，各模块注册路径）
 │   │
-│   ├── OverLay/                ← 贴片系统（血条 / 伤害数字等 UI 层元素）
+│   ├── OverLay/                ← 贴片系统（血条 / UI 界面等 Canvas 上层元素）
 │   │   ├── Overlay.js          ← 贴片基类（跟随实体 / 生命周期）
 │   │   ├── OverlayManager.js   ← 贴片容器（add / update / render / 自动清理）
+│   │   ├── UI/                 ← UI 组件（UIScreen / UIButton / UIText）
+│   │   │   ├── index.js        ← 统一导出
+│   │   │   ├── UIScreen.js     ← UI 画面（半透明遮罩 + 按钮 + 文字 + 事件绑定）
+│   │   │   ├── UIButton.js     ← 可点击按钮（hover + hitTest + onClick）
+│   │   │   └── UIText.js       ← 文字渲染元素
 │   │   └── pojo/
 │   │       ├── HealthBar.js    ← 血条（跟随实体 + 绿→黄→红变色）
-│   │       └── StartScreen.js  ← 开始界面（标题 + 提示文字）
+│   │       ├── TitleScreen.js  ← 标题界面工厂
+│   │       ├── LevelSelect.js  ← 关卡选择界面工厂
+│   │       ├── WinScreen.js    ← 胜利结算界面工厂
+│   │       └── LoseScreen.js   ← 失败结算界面工厂
 │   │
 │   ├── Input/                  ← 输入系统
 │   │   ├── Input.js            ← 键盘输入（isAction / isJustPressed / keydown/keyup）
@@ -151,12 +161,17 @@ gamePVZ/
 │           ├── CollisionSystem.js  ← 碰撞系统（检测 + emit DAMAGE 事件）
 │           ├── CollisionTest.js    ← 碰撞测试（碰撞 → 暂停，调试用）
 │           ├── PlayerSystem.js     ← 玩家射击输入检测（emit PLAYER_SHOOT）
-│           └── OverlaySystem.js    ← Overlay 驱动（每帧更新贴片）
+│           ├── OverlaySystem.js    ← Overlay 驱动（每帧更新贴片）
+│           ├── UISystem.js         ← UI 界面调度（状态钩子 → 创建/销毁界面）
+│           └── LevelFlowSystem.js  ← 关卡流程控制（监听胜负事件 → transition）
 │
 ├── Data/                       ← 数据配置（数值 / 关卡数据）
 ├── UI/                         ← UI 样式与组件
 ├── assets/                     ← 静态资源（图片 / 音效）
 ├── docs/                       ← 项目文档
+│   ├── animation-system.md     ← 动画系统设计文档
+│   ├── script-system.md        ← 脚本系统设计文档
+│   └── level-design.md         ← 关卡设计开发指南
 └── db/                         ← 数据库 schema
 ```
 
@@ -216,8 +231,10 @@ VS Code 中按住 `Ctrl` + 点击路径可直接跳转到源文件。
 
 ```
 LOADING ──→ START ──→ PLAYING ──→ PAUSED ──→ PLAYING
-                               ├──→ WIN
-                               └──→ LOSE
+                               ├──→ WIN ───→ START（返回菜单）
+                               │     └──→ PLAYING（下一关）
+                               └──→ LOSE ──→ START（返回菜单）
+                                     └──→ PLAYING（重新开始）
 ```
 
 ```js
@@ -301,8 +318,12 @@ eventBus.off(EventTypes.COLLISION, handler);
 
 | 事件 | 触发方 | 监听方 | 载荷 |
 |------|--------|--------|------|
-| `PLAYER_SHOOT` | PlayerSystem | BulletSpawner | `{ x, y }` |
-| `COLLISION` | CollisionSystem | 各实体/系统 | `{ a, b }` |
+| `PLAYER_SHOOT` | PlayerSystem | BulletShootScript | `{ x, y }` |
+| `COLLISION` | CollisionSystem | AttackScript | `{ a, b }` |
+| `DAMAGE` | CollisionSystem / AttackScript | HealthScript | `{ entity, amount }` |
+| `ENTITY_DIED` | HealthScript | DeathScript + 关卡胜负规则 | `{ entity }` |
+| `LEVEL_WIN` | 关卡胜负规则 | LevelFlowSystem | `{}` |
+| `LEVEL_LOSE` | 关卡胜负规则 | LevelFlowSystem | `{}` |
 
 ### 4. Entity / Scene / Script
 
@@ -562,12 +583,13 @@ attachScripts(zombie,
 );
 ```
 
-**通信方式**：脚本间通过 `entity.state`（共享数据）和 `EventBus`（事件链）通信，彼此不 import。
+**通信方式**：脚本间通过 `entity.state`（共享数据）和 `EventBus`（事件链）通信，彼此不 import。胜负条件由关卡文件负责，脚本不管输赢。
 
 ```
 CollisionSystem → emit DAMAGE
-  → HealthScript: hp -= 25 → state='dead' → emit ENTITY_DIED
-    → DeathScript: scene.del()
+  → HealthScript: hp -= 25 → hp≤0 → emit ENTITY_DIED
+    → DeathScript: scene.del()                    ← 脚本层：只移除实体
+    → 关卡胜负规则: emit(LEVEL_WIN / LEVEL_LOSE)   ← 关卡层：判断输赢
     → AnimationSystem: 自动切死亡动画
 ```
 
@@ -577,6 +599,60 @@ CollisionSystem → emit DAMAGE
 - 炸弹僵尸：`ZombieMove + ZombieHealth + BombAttack + ZombieDeath`
 
 详见 [`docs/script-system.md`](docs/script-system.md)。
+
+---
+
+### 10. UI 系统
+
+基于状态机驱动的 UI 界面系统，全部用 Canvas 2D 原生绘制，零 DOM 依赖。
+
+**组件分层**：
+
+| 组件 | 职责 |
+|------|------|
+| `UIScreen` | 画面容器：半透明遮罩 + 子组件渲染 + click/mousemove 事件委托 |
+| `UIButton` | 按钮：hover 高亮 + hitTest 碰撞检测 + onClick 回调 |
+| `UIText` | 文字：颜色、字号、对齐 + 居中渲染 |
+
+**触发流程**：全部由状态机驱动
+
+```
+transition(WIN/LOSE) → UISystem.onEnter → 创建 UIScreen → overlayManager.add()
+  → 渲染链: Scene.render() → overlayManager.render(ctx) → UIScreen.render()
+    → 用户点击按钮 → onClick 回调 → screen.close() → transition(下一个状态)
+```
+
+**已有界面**：
+
+| 工厂函数 | 关联状态 | 按钮 / 功能 |
+|----------|----------|-------------|
+| `createTitleScreen` | START | "开始游戏" → 关卡选择 |
+| `createLevelSelect` | START | 关卡列表 + "返回" |
+| `createWinScreen` | WIN | "下一关" / "返回菜单" |
+| `createLoseScreen` | LOSE | "重新开始" / "返回菜单" |
+
+### 11. 关卡设计
+
+胜负条件由**关卡文件定义**，不硬编码在实体脚本中。每个关卡可以有完全不同的规则。
+
+```
+关卡文件 (level/levelX.js)
+    ├── 创建实体 + attachScripts() + scene.add()
+    ├── _registerRules() → 定义胜负条件
+    │     ├── eventBus.on(ENTITY_DIED, ...)  ← 死亡触发
+    │     └── onUpdate(GameState.PLAYING, ...) ← 轮询触发
+    └── emit(LEVEL_WIN / LEVEL_LOSE)
+          → LevelFlowSystem → transition(WIN / LOSE)
+            → UISystem → 显示结算界面
+```
+
+| 关卡 | 胜利条件 | 失败条件 |
+|------|----------|----------|
+| 第 1 关 | 消灭所有僵尸 | 玩家死亡 |
+| 第 2 关（可扩展）| 生存 30 秒 | 玩家死亡 |
+| 第 3 关（可扩展）| 击败 Boss | 玩家死亡 |
+
+> 💡 添加新关卡只需 3 步：写关卡文件 → 注册到 `level/index.js` → 注册到 `UISystem.js` 的 LEVELS 列表。详见 [`docs/level-design.md`](docs/level-design.md)。
 
 ---
 
@@ -607,12 +683,14 @@ main.js
       ├─ PauseSystem        ← 暂停/恢复
       ├─ StartSystem        ← 开始界面逻辑
       ├─ OverlaySystem      ← 贴片更新
+      ├─ 关卡胜负规则        ← 监听 ENTITY_DIED / onUpdate 轮询 → emit LEVEL_WIN/LEVEL_LOSE
       └─ Scene.update()     ← 实体 update(dt)
 
   render():
     world.render(ctx)        ← Scene.render()
       ├─ entities → render(ctx)
-      └─ overlayManager.render(ctx)
+      ├─ _afterEntityRender  ← 动画系统渲染
+      └─ overlayManager.render(ctx)  ← UI 贴片（最上层）
 ```
 
 ---
@@ -639,19 +717,20 @@ main.js
 - [x] **FrameLoader** — getPhotoPathAsc（命名规范拼帧路径，同步/自动检测双模式）
 - [x] **脚本系统** — ScriptSystem（stage 分组 + enter/update/exit 生命周期）+ 各实体独立脚本
 - [x] **EventBus 调试** — emit 日志 + source 追踪 + DEBUG 开关
+- [x] **UI 系统** — UIScreen + UIButton + UIText + 状态驱动界面调度
+- [x] **胜负结算** — WIN / LOSE 界面 + 关卡选择 + 胜负条件关卡化
+- [x] **多关卡支持** — 关卡动态加载 + 关卡选择界面 + 关卡间切换
 
 ### 进行中 🚧
 
 - [ ] 植物实体（贴图 + 放置逻辑 + 阳光生产）
 - [ ] 敌方波次系统（定时批量生成，难度递增）
-- [ ] WIN / LOSE 结算界面
 - [ ] 音效集成（BGM + 射击 + 碰撞）
 
 ### 计划中 📝
 
 - [ ] 植物放置系统（阳光 + CD + 网格）
 - [ ] 经济系统（阳光收集 + 消耗）
-- [ ] 多关卡支持 + 关卡选择
 - [ ] SQL.js 存档系统
 - [ ] 完整美术资源替换
 - [ ] UI 界面（阳光计数、植物卡片栏）
@@ -720,27 +799,91 @@ import './systemPojo/ZombieSpawner.js';
 ### 添加新关卡
 
 ```js
-// level/level2.js
+// 1. level/level2.js — 关卡文件
+import { scene } from '@entity/Scene.js';
+import { setWorld, onEnter, onExit } from '@core/GameLoop.js';
+import { GameState } from '@core/State Machine.js';
+import { eventBus } from '@core/EventBus/EventBus.js';
+import { EventTypes } from '@core/EventBus/EventTypes.js';
+import { EntityType } from '@entity/EntityType.js';
 import { Zombie } from '@entity/pojo/Zombie.js';
 import { Player } from '@entity/pojo/player.js';
-import { scene } from '@entity/Scene.js';
-import { setWorld } from '@core/GameLoop.js';
+import { attachScripts } from '@system/systemPojo/ScriptSystem.js';
+// ... 导入所需脚本
 
-// 创建多个僵尸
-for (let i = 0; i < 5; i++) {
-  const zombie = new Zombie();
-  zombie.x = 700 + i * 80;
-  zombie.y = 100 + Math.random() * 300;
-  scene.add(zombie);
+// —— 胜负条件 ——
+let _rulesRegistered = false;
+
+function _registerRules() {
+    if (_rulesRegistered) return;
+    _rulesRegistered = true;
+
+    function onEntityDied({ entity }) {
+        if (entity.type === EntityType.PLAYER) {
+            eventBus.emit(EventTypes.LEVEL_LOSE, {}, 'Level2');
+            return;
+        }
+        if (entity.type === EntityType.ENEMY) {
+            const enemies = scene.getEntities().filter(e => e.type === EntityType.ENEMY);
+            if (enemies.length === 0) {
+                eventBus.emit(EventTypes.LEVEL_WIN, {}, 'Level2');
+            }
+        }
+    }
+
+    onEnter(GameState.PLAYING, 'Level2_Rules', () => {
+        eventBus.on(EventTypes.ENTITY_DIED, onEntityDied);
+    });
+    onExit(GameState.PLAYING, 'Level2_Rules', () => {
+        eventBus.off(EventTypes.ENTITY_DIED, onEntityDied);
+    });
 }
 
-const player = new Player();
-player.x = 100;
-player.y = 300;
-scene.add(player);
+// —— 入口 ——
+export function init() {
+    _registerRules();
 
-setWorld(scene);
+    // 创建实体 + 挂载脚本
+    for (let i = 0; i < 5; i++) {
+        const zombie = new Zombie();
+        zombie.x = 700 + i * 80;
+        zombie.y = 100 + Math.random() * 300;
+        attachScripts(zombie,
+            createZombieMoveScript(),
+            createZombieHealthScript(),
+            createZombieAttackScript(),
+            createZombieDeathScript(),
+        );
+        scene.add(zombie);
+    }
+
+    const player = new Player();
+    player.x = 100; player.y = 300;
+    attachScripts(player,
+        createPlayerMoveScript(),
+        createPlayerShootScript(),
+        createPlayerHealthScript(),
+        createPlayerDeathScript(),
+    );
+    scene.add(player);
+
+    setWorld(scene);
+}
+
+// 2. level/index.js 中注册
+const levelLoaders = {
+    1: () => import('./level1.js').then(m => m.init()),
+    2: () => import('./level2.js').then(m => m.init()),   // ← 新增
+};
+
+// 3. UISystem.js 的 LEVELS 数组中添加
+const LEVELS = [
+    { id: 1, title: '第 1 关' },
+    { id: 2, title: '第 2 关' },   // ← 新增
+];
 ```
+
+> 💡 胜负条件由关卡文件定义，不同关卡可以完全不同（消灭全部敌人 / 生存 N 秒 / 击败 Boss）。详见 [`docs/level-design.md`](docs/level-design.md)。
 
 ### 添加新事件
 
