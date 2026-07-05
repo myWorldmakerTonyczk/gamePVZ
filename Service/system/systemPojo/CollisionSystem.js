@@ -11,17 +11,15 @@ onUpdate(GameState.PLAYING, HookLabel.COLLISION_SYSTEM, () => {
     checkCollisions(scene.entities);
 });
 
-// 碰撞处理：子弹 → 清除 + 扣血
+// 碰撞处理：子弹 → 清除 + 发射 DAMAGE 事件
 function onCollision({ a, b }) {
     if (a.type === EntityType.BULLET && b.type === EntityType.ENEMY) {
         scene.del(a);
-        b.hp -= 25;
-        if (b.hp <= 0) scene.del(b);
+        eventBus.emit(EventTypes.DAMAGE, { entity: b, damage: 25 }, 'CollisionSystem');
     }
     if (b.type === EntityType.BULLET && a.type === EntityType.ENEMY) {
         scene.del(b);
-        a.hp -= 25;
-        if (a.hp <= 0) scene.del(a);
+        eventBus.emit(EventTypes.DAMAGE, { entity: a, damage: 25 }, 'CollisionSystem');
     }
     // 子弹撞墙/玩家 → 直接清除
     if (a.type === EntityType.BULLET) scene.del(a);

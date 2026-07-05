@@ -18,6 +18,8 @@ export class Entity {
     type = null;
     state = null;             // 行为状态（'walk' / 'attack' / 'idle' / 'dead'）
 
+    _scripts = [];            // 外置脚本列表，由 ScriptSystem.attachScripts() 填充
+
     update(dt) {}
     render(ctx) {}
 
