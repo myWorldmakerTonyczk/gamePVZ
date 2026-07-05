@@ -100,19 +100,24 @@ gamePVZ/
 │   │       ├── EventBus.js     ← 发布-订阅核心（on/emit/off）
 │   │       └── EventTypes.js   ← 事件名常量（COLLISION / PLAYER_SHOOT）
 │   │
-│   ├── Entity/                 ← 实体层（游戏对象）
-│   │   ├── Entity.js           ← 实体基类（x, y, w, h, hp, maxHp, speed, type）
+│   ├── Entity/                 ← 实体层（纯数据 + 脚本组合）
+│   │   ├── Entity.js           ← 实体基类（x, y, w, h, hp, maxHp, speed, type, _scripts）
 │   │   ├── EntityType.js       ← 实体类型枚举（PLAYER / ENEMY / BULLET）
-│   │   ├── Scene.js            ← 场景容器（遍历 update/render + Overlay 渲染）
-│   │   └── pojo/               ← 实体实现
-│   │       ├── Box.js          ← 敌人方块（旧，已被 Zombie 替代）
-│   │       ├── Zombie.js       ← 僵尸（state='walk'，由 AnimationSystem 驱动动画）
-│   │       ├── player.js       ← 玩家（WASD 移动 + 方向显示）
-│   │       └── Bullet.js       ← 子弹（角度飞行 + 碰撞清除）
+│   │   ├── Scene.js            ← 场景容器（遍历 update/render + _afterEntityRender 钩子）
+│   │   ├── pojo/               ← 实体实现（纯数据，无行为逻辑）
+│   │   │   ├── Box.js          ← 敌人方块（旧，已被 Zombie 替代）
+│   │   │   ├── Zombie.js       ← 僵尸（纯数据：type/w/h/state）
+│   │   │   ├── player.js       ← 玩家（纯数据：type/w/h）
+│   │   │   └── Bullet.js       ← 子弹（纯数据：type/w/h/angle）
+│   │   └── scripts/            ← 外置行为脚本（按实体类型分目录）
+│   │       ├── zombie/         ← 僵尸脚本：Move / Health / Attack / Death
+│   │       ├── player/         ← 玩家脚本：Move / Shoot
+│   │       └── bullet/         ← 子弹脚本：Move / Death
 │   │
 │   ├── Animation/              ← 动画系统
-│   │   ├── Animation.js        ← 帧数组 + 时间驱动切帧 + loop/play/stop
-│   │   ├── AnimationRegistry.js← key → Animation 映射
+│   │   ├── AnimationConfig.js  ← 不可变配置（帧列表 + 帧时长 + 循环）
+│   │   ├── AnimationPlayer.js  ← 可变播放状态（每个 animator 独立实例）
+│   │   ├── AnimationRegistry.js← 配置注册 + type/state 映射 + 资源注册
 │   │   └── pojo/               ← 动画定义（按实体分类）
 │   │
 │   ├── Resource/              ← 资源管理
@@ -138,14 +143,14 @@ gamePVZ/
 │       ├── HookLabel.js        ← Hook 标签常量（调试追踪用）
 │       ├── index.js            ← 系统统一入口（副作用 import）
 │       └── systemPojo/
-│           ├── AnimationSystem.js  ← 动画系统（读 entity.state → 驱动帧 → 渲染）
+│           ├── AnimationSystem.js  ← 动画系统（读 entity.state → 驱动帧 → 渲染 + bindPosition）
+│           ├── ScriptSystem.js     ← 脚本调度器（stage 分组 + enter/update/exit 生命周期）
 │           ├── LoadSystem.js       ← LOADING 阶段资源预加载
 │           ├── StartSystem.js      ← START 状态（界面 + 输入检测）
 │           ├── PauseSystem.js      ← 暂停切换（Esc）
-│           ├── CollisionSystem.js  ← 碰撞系统（检测 + 扣血 + 死亡清除）
+│           ├── CollisionSystem.js  ← 碰撞系统（检测 + emit DAMAGE 事件）
 │           ├── CollisionTest.js    ← 碰撞测试（碰撞 → 暂停，调试用）
-│           ├── PlayerSystem.js     ← 玩家系统（方向 + 射击事件）
-│           ├── BulletSpawner.js    ← 子弹生成器（监听 PLAYER_SHOOT）
+│           ├── PlayerSystem.js     ← 玩家射击输入检测（emit PLAYER_SHOOT）
 │           └── OverlaySystem.js    ← Overlay 驱动（每帧更新贴片）
 │
 ├── Data/                       ← 数据配置（数值 / 关卡数据）
@@ -299,9 +304,9 @@ eventBus.off(EventTypes.COLLISION, handler);
 | `PLAYER_SHOOT` | PlayerSystem | BulletSpawner | `{ x, y }` |
 | `COLLISION` | CollisionSystem | 各实体/系统 | `{ a, b }` |
 
-### 4. Entity / Scene
+### 4. Entity / Scene / Script
 
-**Entity（实体基类）**：所有游戏对象的祖先
+**Entity（实体基类）**：纯数据 + 纯方法，不包含任何行为逻辑和渲染代码。
 
 ```js
 class Entity {
@@ -309,13 +314,28 @@ class Entity {
   hp, maxHp        // 生命值
   speed            // 速度
   type             // 类型（EntityType 枚举）
+  state            // 行为状态（动画系统和脚本系统读取）
+  _scripts = []    // 外置脚本列表
 
-  update(dt)       // 每帧逻辑（子类覆写）
-  render(ctx)      // 渲染（子类覆写）
+  update(dt)       // 可被子类覆写（非脚本逻辑）
+  render(ctx)      // 色块兜底渲染（由 AnimationSystem 覆盖）
   getBounds()      // 返回碰撞矩形 { x, y, w, h }
-  takeDamage(n)    // 扣血，hp ≤ 0 返回 true（表示死亡）
 }
 ```
+
+**Script（组件化行为）**：实体行为由外置脚本定义，通过 `attachScripts` 挂载。脚本是 `{ stage, enter, update, exit }` 三件套，每个实体类型独立维护自己的脚本目录。
+
+```js
+// 关卡中挂载脚本
+attachScripts(zombie,
+    createZombieMoveScript(),
+    createZombieHealthScript(),
+    createZombieAttackScript(),
+    createZombieDeathScript(),
+);
+```
+
+脚本间通过 `entity.state` 和 `EventBus` 通信，彼此不 import、不调用、不知道对方存在。
 
 **Scene（场景容器）**：管理所有实体的生命周期
 
@@ -329,7 +349,8 @@ setWorld(scene);  // 引擎接管 Scene 的渲染
 // Scene 内部每帧自动：
 // 1. 遍历 entities → update(dt)
 // 2. 遍历 entities → render(ctx)
-// 3. 调用 overlayManager.render(ctx)  ← Overlay 最后渲染，保证在最上层
+// 3. 调用 _afterEntityRender(ctx)  ← 动画系统渲染钩子
+// 4. 调用 overlayManager.render(ctx)  ← Overlay 最后渲染
 ```
 
 ### 5. Overlay 贴片系统
@@ -464,55 +485,98 @@ onEnter(GameState.LOADING, 'LoadSystem', async () => {
 
 ### 9. 动画系统
 
-Entity 只持有 `state`（行为状态），完全不涉及动画代码。AnimationSystem 统一读取、翻译、驱动、渲染。
+数据驱动的精灵图动画系统，Entity 零感知。分两种使用方式：
 
-```
-Entity.state = 'walk'
-       ↓
-AnimationSystem.onUpdate (每帧)
-  ├─ 读 entity.type + entity.state
-  ├─ STATE_ANIM_MAP 翻译 → 动画 key ('zombieWalk')
-  ├─ AnimationRegistry.get(key) → Animation 实例
-  ├─ anim.update(dt) 驱动帧计时
-  └─ anim.getCurrentFrame() → 当前帧图片路径
-       ↓
-AnimationSystem.render (Scene 每帧调用)
-  └─ entity.drawSprite(ctx, frame, x, y, w)
+**实体动画**：Entity 声明 `type` 和 `state`，AnimationSystem 自动跟踪、切换、渲染。
+
+```js
+// 注册（仅此一次）
+registerAnimation({
+    key: 'zombieWalk',
+    entityType: EntityType.ENEMY,
+    state: 'walk',
+    config: {
+        dir: 'assets/images/Entity/animation/zombie/walk',
+        count: 20,
+        frameTime: 0.20,
+        loop: true,
+    },
+});
+
+// 实体只需设 state，动画自动响应
+this.type = EntityType.ENEMY;
+this.state = 'walk';   // ← AnimationSystem 自动读取 → 播放 zombieWalk 动画
 ```
 
-**三模块协作**：
+**坐标动画**：不绑定实体，传入 `{ x, y, w, animKey }` 在指定位置播放。适用于爆炸特效、UI 提示等。
+
+```js
+bindPosition({ x: 400, y: 300, w: 80, animKey: 'explosionEffect' });
+// 非循环动画播完自动清理；循环动画用 unbind(id) 手动停止
+```
+
+**核心模块**：
 
 | 模块 | 职责 |
 |------|------|
-| `Animation` | 帧数组 + 时间驱动切帧 + `loop/play/stop/pause/reset` |
-| `AnimationRegistry` | key → Animation 映射，实体按名取 |
-| `AnimationSystem` | 读 entity.state → 选动画 → 驱动 → 渲染（`setAfterEntityRender` 钩子） |
+| `AnimationConfig` | 不可变配置（帧列表 + 帧时长 + 是否循环），多实体共享 |
+| `AnimationPlayer` | 可变播放状态（帧索引 + 计时器），每个 animator 独立 new |
+| `AnimationRegistry` | 配置注册 + type/state 映射 + 帧路径生成 + 资源注册 |
+| `AnimationSystem` | 调度中心：绑定 → 状态解析 → Player 更新 → 渲染 |
 
-**渲染顺序**：`entity.render()` → `AnimationSystem.render()` → `Overlay.render()`，保证动画在实体之上、贴片之下。
+**渲染顺序**：`entity.render()` → `AnimationSystem.render()` → `Overlay.render()`，保证动画在实体色块之上、贴片之下。
 
-**添加新动画**：
+详见 [`docs/animation-system.md`](docs/animation-system.md)。
 
-```js
-// 1. Animation/pojo/ 下新建文件
-const frames = getPhotoPathAsc('assets/xxx', 8, 'png');
-frames.forEach(f => setResource(f));
-registerAnimation('myWalk', new Animation({ frames, frameTime: 0.1, loop: true }));
+---
 
-// 2. AnimationSystem.js STATE_ANIM_MAP 加映射
-[EntityType.ENEMY]: { walk: 'myWalk' },
+### 10. 脚本系统
 
-// 3. 实体设置 state
-this.state = 'walk';
+组件化实体行为系统。实体纯数据，行为由外置脚本定义，脚本间通过 EventBus 通信。
+
+```
+Entity（纯数据）
+  ├── _scripts = [MoveScript, HealthScript, AttackScript, DeathScript]
+  └── ScriptSystem 机械调度（stage 分组: INPUT → LOGIC → EFFECT → CLEANUP）
 ```
 
-**getPhotoPathAsc**：
+**脚本格式**：工厂函数返回 `{ stage, enter, update, exit }`，每个实体类型独立维护自己的脚本目录。
 
 ```js
-// 命名规范：文件夹名_序号.拓展名
-getPhotoPathAsc('assets/zombie/walk', 20, 'png', 1);
-// → walk_1.png ~ walk_20.png
-// 传 count → 同步返回；不传 count → Promise 自动检测
+// Entity/scripts/zombie/ZombieMoveScript.js
+export function createZombieMoveScript() {
+    return {
+        stage: 'LOGIC',
+        enter(entity) { entity.speed = 50; },
+        update(entity, dt) { entity.x -= entity.speed * dt; },
+        exit() {},
+    };
+}
+
+// 关卡中组合
+attachScripts(zombie,
+    createZombieMoveScript(),
+    createZombieHealthScript(),
+    createZombieAttackScript(),
+    createZombieDeathScript(),
+);
 ```
+
+**通信方式**：脚本间通过 `entity.state`（共享数据）和 `EventBus`（事件链）通信，彼此不 import。
+
+```
+CollisionSystem → emit DAMAGE
+  → HealthScript: hp -= 25 → state='dead' → emit ENTITY_DIED
+    → DeathScript: scene.del()
+    → AnimationSystem: 自动切死亡动画
+```
+
+**同一个实体换不同脚本组合** = 不同行为：
+- 普通僵尸：`ZombieMove + ZombieHealth + ZombieAttack + ZombieDeath`
+- 快速僵尸：`FastZombieMove + ZombieHealth + ZombieAttack + ZombieDeath`
+- 炸弹僵尸：`ZombieMove + ZombieHealth + BombAttack + ZombieDeath`
+
+详见 [`docs/script-system.md`](docs/script-system.md)。
 
 ---
 
@@ -521,7 +585,7 @@ getPhotoPathAsc('assets/zombie/walk', 20, 'png', 1);
 ```
 main.js
   │
-  ├─ import level/level1.js  ──→ 实体调用 setResource() + 创建实体 → scene.add()
+  ├─ import level/level1.js  ──→ 实体调用 setResource() + 创建实体 + attachScripts() + scene.add()
   ├─ import Service/system/   ──→ 各系统注册 hooks（副作用 import）
   │
   └─ start(ctx, canvas)
@@ -535,11 +599,11 @@ main.js
 
   update(dt):
     hooks.onUpdate[currentState] → 逐个执行
-      ├─ AnimationSystem    ← 读 entity.state → 驱动动画帧
-      ├─ PlayerSystem       ← 方向 + 射击事件
-      ├─ CollisionSystem    ← 碰撞检测 + 扣血
+      ├─ AnimationSystem    ← 读 entity.state → 驱动动画帧 + renderAnimators
+      ├─ ScriptSystem       ← 按 stage 分组执行各实体脚本的 enter/update/exit
+      ├─ PlayerSystem       ← 射击输入检测 → emit PLAYER_SHOOT
+      ├─ CollisionSystem    ← 碰撞检测 → emit DAMAGE 事件
       ├─ CollisionTest      ← 碰撞 → 暂停（调试）
-      ├─ BulletSpawner      ← 监听事件 → 创建子弹
       ├─ PauseSystem        ← 暂停/恢复
       ├─ StartSystem        ← 开始界面逻辑
       ├─ OverlaySystem      ← 贴片更新
@@ -571,14 +635,15 @@ main.js
 - [x] **路径别名** — importmap + jsconfig.json（Ctrl+点击跳转，含 @resource）
 - [x] **关卡分层** — `level/` 目录，创建实体与系统解耦
 - [x] **僵尸实体** — Zombie 类（state='walk'，由 AnimationSystem 驱动动画）
-- [x] **动画系统** — Animation + Registry + AnimationSystem（Entity.state 驱动，完全解耦）
+- [x] **动画系统** — Config/Player 拆分 + Registry 收敛 + Entity 去渲染化 + bindPosition 坐标动画
 - [x] **FrameLoader** — getPhotoPathAsc（命名规范拼帧路径，同步/自动检测双模式）
+- [x] **脚本系统** — ScriptSystem（stage 分组 + enter/update/exit 生命周期）+ 各实体独立脚本
+- [x] **EventBus 调试** — emit 日志 + source 追踪 + DEBUG 开关
 
 ### 进行中 🚧
 
-- [ ] 雪碧图打包（散图 → 运行时拼接，减少请求）
-- [ ] 敌方波次系统
-- [ ] 植物实体（贴图 + 放置逻辑）
+- [ ] 植物实体（贴图 + 放置逻辑 + 阳光生产）
+- [ ] 敌方波次系统（定时批量生成，难度递增）
 - [ ] WIN / LOSE 结算界面
 - [ ] 音效集成（BGM + 射击 + 碰撞）
 
@@ -598,41 +663,32 @@ main.js
 ### 添加新实体
 
 ```js
-// 1. Service/Entity/pojo/Zombie.js
-import { Entity } from '@entity/Entity.js';
-import { EntityType } from '@entity/EntityType.js';
-import { setResource } from '@resource/ResourceList.js';
-import { get } from '@resource/ResourceManager.js';
-
-setResource('assets/images/zombie.png');  // 声明依赖
-
-export class Zombie extends Entity {
+// 1. Service/Entity/pojo/NewEnemy.js — 实体类（纯数据）
+export class NewEnemy extends Entity {
   type = EntityType.ENEMY;
-
-  update(dt) {
-    this.x -= this.speed * dt;  // 向左移动
-  }
-
-  render(ctx) {
-    const img = get('assets/images/zombie.png');
-    if (img) {
-      ctx.drawImage(img, this.x, this.y, this.w, this.h);
-    } else {
-      ctx.fillStyle = '#4a4';
-      ctx.fillRect(this.x, this.y, this.w, this.h);
-    }
-  }
-
-  getBounds() {
-    return { x: this.x, y: this.y, w: this.w, h: this.h };
-  }
+  w = 60; h = 60;
+  state = 'idle';
 }
 
-// 2. 在关卡中使用
-import { Zombie } from '@entity/pojo/Zombie.js';
-const z = new Zombie();
-z.x = 800; z.y = 200;
-scene.add(z);
+// 2. Service/Entity/scripts/newEnemy/NewEnemyMoveScript.js — 脚本
+export function createNewEnemyMoveScript() {
+  return {
+    stage: 'LOGIC',
+    enter(entity) { entity.speed = 80; },
+    update(entity, dt) {
+      if (entity.state !== 'walk') return;
+      entity.x -= entity.speed * dt;
+    },
+    exit() {},
+  };
+}
+
+// 3. 在关卡中挂载
+attachScripts(enemy,
+  createNewEnemyMoveScript(),
+  createNewEnemyHealthScript(),
+);
+scene.add(enemy);
 ```
 
 ### 添加新系统
