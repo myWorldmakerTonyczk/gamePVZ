@@ -5,20 +5,22 @@ import { setWorld } from '@core/GameLoop.js';
 import { overlayManager } from '@overlay/OverlayManager.js';
 import { HealthBar } from '@overlay/pojo/HealthBar.js';
 import { attachScripts } from '@system/systemPojo/ScriptSystem.js';
-import { createMoveScript } from '@entity/scripts/MoveScript.js';
-import { createHealthScript } from '@entity/scripts/HealthScript.js';
-import { createAttackScript } from '@entity/scripts/AttackScript.js';
-import { createDeathScript } from '@entity/scripts/DeathScript.js';
+import { createZombieMoveScript } from '@entity/scripts/zombie/ZombieMoveScript.js';
+import { createZombieHealthScript } from '@entity/scripts/zombie/ZombieHealthScript.js';
+import { createZombieAttackScript } from '@entity/scripts/zombie/ZombieAttackScript.js';
+import { createZombieDeathScript } from '@entity/scripts/zombie/ZombieDeathScript.js';
+import { createPlayerShootScript } from '@entity/scripts/player/PlayerShootScript.js';
+import { createPlayerMoveScript } from '@entity/scripts/player/PlayerMoveScript.js';
 
 function spawnZombie(x, y) {
     const zombie = new Zombie();
     zombie.x = x;
     zombie.y = y;
     attachScripts(zombie,
-        createMoveScript(),
-        createHealthScript(),
-        createAttackScript(),
-        createDeathScript(),
+        createZombieMoveScript(),
+        createZombieHealthScript(),
+        createZombieAttackScript(),
+        createZombieDeathScript(),
     );
     scene.add(zombie);
     overlayManager.add(new HealthBar(zombie));
@@ -32,6 +34,10 @@ spawnZombie(700, 0);
 const player = new Player();
 player.x = 100;
 player.y = 100;
+attachScripts(player,
+    createPlayerMoveScript(),
+    createPlayerShootScript(),
+);
 scene.add(player);
 
 setWorld(scene);

@@ -2,14 +2,11 @@ import { eventBus } from '@core/EventBus/EventBus.js';
 import { EventTypes } from '@core/EventBus/EventTypes.js';
 
 /**
- * 生命脚本 — 管理 hp 变化和死亡。
+ * 僵尸生命脚本
  *
- * 监听 DAMAGE 事件扣血，hp≤0 时改变 state 并发射 ENTITY_DIED 事件。
- * 不负责移除实体（由 DeathScript 或其他系统处理）。
- *
- * stage: LOGIC
+ * 监听 DAMAGE 事件扣血，hp≤0 时切换 state 并发射 ENTITY_DIED。
  */
-export function createHealthScript() {
+export function createZombieHealthScript() {
     let _entity = null;
 
     function onDamage({ entity, damage }) {
@@ -20,7 +17,7 @@ export function createHealthScript() {
         if (entity.hp <= 0) {
             entity.hp = 0;
             entity.state = 'dead';
-            eventBus.emit(EventTypes.ENTITY_DIED, { entity }, 'HealthScript');
+            eventBus.emit(EventTypes.ENTITY_DIED, { entity }, 'ZombieHealthScript');
         }
     }
 

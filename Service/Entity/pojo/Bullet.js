@@ -1,29 +1,25 @@
 import { Entity } from '@entity/Entity.js';
 import { EntityType } from '@entity/EntityType.js';
 
+/**
+ * 子弹实体 —— 纯数据。
+ *
+ * 移动 → BulletMoveScript
+ * 碰撞清除 → CollisionSystem
+ * 渲染 → render() 色块兜底（后续由 AnimationSystem 接管）
+ */
 export class Bullet extends Entity {
-    id = crypto.randomUUID();
-    speed = 50;
     type = EntityType.BULLET;
     x = 0;
     y = 0;
     w = 20;
     h = 20;
-    angle = 0;
+    angle = 0;      // 飞行方向（弧度），PlayerShootScript 设置
 
-    update(dt){
-        this.x += Math.cos(this.angle) * this.speed * dt;
-        this.y += Math.sin(this.angle) * this.speed * dt;
-    }
-    render(ctx){
-        ctx.fillStyle = "white";
-        ctx.fillRect(this.x,this.y,this.w,this.h);
-    }
-    getBounds() {
-        return { x: this.x, y: this.y, w: this.w, h: this.h };
-    }
+    update(dt) {}
 
-    shoot(angle){
-        this.angle = angle;
+    render(ctx) {
+        ctx.fillStyle = 'white';
+        ctx.fillRect(this.x, this.y, this.w, this.h);
     }
 }

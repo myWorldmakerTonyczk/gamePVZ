@@ -3,13 +3,11 @@ import { EventTypes } from '@core/EventBus/EventTypes.js';
 import { scene } from '@entity/Scene.js';
 
 /**
- * 死亡脚本 — 监听 ENTITY_DIED 事件，从 scene 移除实体。
+ * 僵尸死亡脚本
  *
- * 不处理 hp 逻辑（那是 HealthScript 的事），只做最终的清理。
- *
- * stage: CLEANUP（在所有 LOGIC 之后执行）
+ * 监听 ENTITY_DIED 事件，从 scene 移除实体。
  */
-export function createDeathScript() {
+export function createZombieDeathScript() {
     let _entity = null;
 
     function onEntityDied({ entity }) {

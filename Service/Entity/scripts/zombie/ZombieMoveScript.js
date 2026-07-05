@@ -2,14 +2,12 @@ import { eventBus } from '@core/EventBus/EventBus.js';
 import { EventTypes } from '@core/EventBus/EventTypes.js';
 
 /**
- * 移动脚本 — 只负责移动。
+ * 僵尸移动脚本
  *
- * 监听 ENTITY_STOP_MOVE 事件来暂停移动，
- * update 里根据 entity.state 决定是否移动。
- *
- * stage: LOGIC
+ * update: state==='walk' 时向左移动
+ * 监听 ENTITY_STOP_MOVE → 暂停移动
  */
-export function createMoveScript() {
+export function createZombieMoveScript() {
     let _entity = null;
     let _paused = false;
 
@@ -22,6 +20,7 @@ export function createMoveScript() {
 
         enter(entity) {
             _entity = entity;
+            entity.speed = 50;
             _paused = false;
             eventBus.on(EventTypes.ENTITY_STOP_MOVE, onStopMove);
         },
